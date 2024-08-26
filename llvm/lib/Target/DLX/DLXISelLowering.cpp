@@ -44,7 +44,7 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   // added, this allows us to compute derived properties we expose.
   computeRegisterProperties(Subtarget.getRegisterInfo());
 
-  setStackPointerRegisterToSaveRestore(DLX::X2);
+  setStackPointerRegisterToSaveRestore(DLX::R2);
 
   // Set scheduling preference. There are a few options:
   //    - None: No preference
@@ -64,6 +64,11 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
   setOperationAction(ISD::BlockAddress,  MVT::i32, Custom);
   setOperationAction(ISD::ConstantPool,  MVT::i32, Custom);
+
+  // Expand to implement using more basic operations
+  // TODO, add other operations that are missing from DLX ISA
+  setOperationAction(ISD::ROTL,          MVT::i32, Expand);
+  setOperationAction(ISD::ROTR,          MVT::i32, Expand);
 
   // Set minimum and preferred function alignment (log2)
   setMinFunctionAlignment(Align(1));
