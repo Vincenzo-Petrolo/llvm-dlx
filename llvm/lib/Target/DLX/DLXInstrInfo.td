@@ -33,38 +33,154 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_CallSeqEnd,
 
 include "DLXInstrFormats.td"
 
-let Defs = [X2], Uses = [X2] in {
+let Defs = [R2], Uses = [XR] in {
 def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                               [(callseq_start timm:$amt1, timm:$amt2)]>;
 def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                               [(callseq_end timm:$amt1, timm:$amt2)]>;
-} // end Defs = [X2], Uses = [X2]
+} // end Defs = [R2], Uses = [R2]
 
-/* Arithmetic and logic */
+/*
+  _____     _______               
+ |  __ \   |__   __|              
+ | |__) |_____| |_   _ _ __   ___ 
+ |  _  /______| | | | | '_ \ / _ \
+ | | \ \      | | |_| | |_) |  __/
+ |_|  \_\     |_|\__, | .__/ \___|
+                  __/ | |         
+                 |___/|_|         
+*/
+
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-class ALU_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
-    : RWInstR<funct7, funct3, OPC_OP, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+class ALU_rr<bit<11> func11, string opcodestr>
+    : RWInstR<func11, OPC_R, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
               opcodestr, "$rd, $rs1, $rs2">;
 
-def ADD  : ALU_rr<0b0000000, 0b000, "add">,
-           Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+/* R-Type definitions */
+def SLL  : ALU_rr<FUNC_SSL, "sll">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SRL  : ALU_rr<FUNC_SRL, "srl">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SRA  : ALU_rr<FUNC_SRA, "sra">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def ADD  : ALU_rr<FUNC_ADD, "add">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def ADDU : ALU_rr<FUNC_ADDU,"addu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SUB  : ALU_rr<FUNC_SUB, "sub">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SUBU : ALU_rr<FUNC_SUBU,"subu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def AND  : ALU_rr<FUNC_AND, "and">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def OR   : ALU_rr<FUNC_OR,  "or">,  Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def XOR  : ALU_rr<FUNC_XOR, "xor">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SEQ  : ALU_rr<FUNC_SEQ, "seq">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SNE  : ALU_rr<FUNC_SNE, "sne">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SLT  : ALU_rr<FUNC_SLT, "slt">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SGT  : ALU_rr<FUNC_SGT, "sgt">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SLE  : ALU_rr<FUNC_SLE, "sle">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SGE  : ALU_rr<FUNC_SGE, "sge">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SLTU : ALU_rr<FUNC_SLTU,"sltu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SGTU : ALU_rr<FUNC_SGTU,"sgtu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SLEU : ALU_rr<FUNC_SLEU,"sleu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SGEU : ALU_rr<FUNC_SGEU,"sgeu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 class PatGprGpr<SDPatternOperator OpNode, RWInst Inst>
     : Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
 
 def : PatGprGpr<add, ADD>;
 
-/* Procedure calling instructions */
+/* Arithmetic and logic I-Type class */
+class ALU_ri<DLXOpcode opcode, string opcodestr>
+    : RWInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16)
+              opcodestr, "$rd, $rs1, $imm16">,
+      Sched<[WriteIALU, ReadIALU]>;
+
+
+
+/*  
+  _____   _______               
+ |_   _| |__   __|              
+   | |______| |_   _ _ __   ___ 
+   | |______| | | | | '_ \ / _ \
+  _| |_     | | |_| | |_) |  __/
+ |_____|    |_|\__, | .__/ \___|
+                __/ | |         
+               |___/|_|         
+*/
+
+// Arithmetics
+// -----------
+def ADDI  : ALU_ri<OPC_ADDI, "addi">;
+def ADDUI : ALU_ri<OPC_ADDUI,"addui">;
+def SUBI  : ALU_ri<OPC_SUBI, "subi">;
+def SUBUI : ALU_ri<OPC_SUBUI,"subui">;
+def ANDI  : ALU_ri<OPC_ANDI, "andi">;
+def ORI   : ALU_ri<OPC_ORI,  "ori">;
+def XORI  : ALU_ri<OPC_XORI, "xori">;
+def LHI   : ALU_ri<OPC_LHI,  "lhi">;
+def SLLI  : ALU_ri<OPC_SLLI, "slli">;
+def NOP   : ALU_ri<OPC_NOP,  "nop">;
+def SRLI  : ALU_ri<OPC_SRLI, "srli">;
+def SRAI  : ALU_ri<OPC_SRAI, "srai">;
+def SEQI  : ALU_ri<OPC_SEQI, "seqi">;
+def SNEI  : ALU_ri<OPC_SNEI, "snei">;
+def SLTI  : ALU_ri<OPC_SLTI, "slti">;
+def SGTI  : ALU_ri<OPC_SGTI, "sgti">;
+def SLEI  : ALU_ri<OPC_SLEI, "slei">;
+def SGEI  : ALU_ri<OPC_SGEI, "sgei">;
+def SLTUI : ALU_ri<OPC_SLTUI,"sltui">;
+def SGTUI : ALU_ri<OPC_SGTUI,"sgtui">;
+def SLEUI : ALU_ri<OPC_SLEUI,"sleui">;
+def SGEUI : ALU_ri<OPC_SGEUI,"sgeui">;
+
+// Load and store
+// --------------
+def LB  : ALU_ri<OPC_LB,  "lb">;
+def LH  : ALU_ri<OPC_LH,  "lh">;
+def LW  : ALU_ri<OPC_LW,  "lw">;
+def LBU : ALU_ri<OPC_LBU, "lbu">;
+def LHU : ALU_ri<OPC_LHU, "lhu">;
+def SB  : ALU_ri<OPC_SB,  "sb">;
+def SH  : ALU_ri<OPC_SH,  "sh">;
+def SW  : ALU_ri<OPC_SW,  "sw">;
+
+// Branches
+// --------
+def BEQZ : ALU_ri<OPC_BEQZ, "beqz">;
+def BNEZ : ALU_ri<OPC_BNEZ, "bnez">;
+
+/* 
+       _     _______               
+      | |   |__   __|              
+      | |______| |_   _ _ __   ___ 
+  _   | |______| | | | | '_ \ / _ \
+ | |__| |      | | |_| | |_) |  __/
+  \____/       |_|\__, | .__/ \___|
+                   __/ | |         
+                  |___/|_|         
+
+*/
+class ALU_JR<DLXOpcode opcode, string opcodestr>
+    : RWInstJ<opcode, (), (ins GPR:$rs1)
+              opcodestr, "$rs1">,
+      Sched<[ReadIALU]>;
+
+/* JR-Type definitions */
+def JR   : ALU_JR<OPC_JR,   "jr">;
+
+// This is for calling functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 let isCall = 1 in
-def JALR : RWInstI<0b000, OPC_JALR, (outs GPR:$rd),
-                   (ins GPR:$rs1, i32imm:$imm12),
-                   "jalr", "$rd, ${imm12}(${rs1})">,
-           Sched<[WriteJalr, ReadJalr]>;
+def JALR : RWInstJ<OPC_JALR, (), (ins GPR:$rs1), "jalr", "$rs1">, Sched<[ReadJalr]>;
 }
 
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
 def PseudoRET : Pseudo<(outs), (ins), [(dlx_ret)]>,
-                PseudoInstExpansion<(JALR X0, X1, 0)>;
+                PseudoInstExpansion<(JR R31)>;
 
-def : InstAlias<"ret",                   (JALR      X0,      X1, 0), 4>;
+def : InstAlias<"ret",                   (JR      R31), 4>;
+
+/* Pure J-Type class */
+class ALU_J<DLXOpcode opcode, string opcodestr>
+    : RWInstJ<opcode, (), (ins i32imm:$imm26)
+              opcodestr, "$imm26">,
+      Sched<[]>;
+
+/* J-Type definitions */
+def J    : ALU_J<OPC_J,    "j">;
+def JAL  : ALU_J<OPC_JAL,  "jal">;
+

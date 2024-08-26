@@ -33,49 +33,74 @@ class InstFormat<bits<5> val> {
 }
 def InstFormatPseudo : InstFormat<0>;
 def InstFormatR      : InstFormat<1>;
-def InstFormatR4     : InstFormat<2>;
-def InstFormatI      : InstFormat<3>;
-def InstFormatS      : InstFormat<4>;
-def InstFormatB      : InstFormat<5>;
-def InstFormatU      : InstFormat<6>;
-def InstFormatJ      : InstFormat<7>;
-def InstFormatCR     : InstFormat<8>;
-def InstFormatCI     : InstFormat<9>;
-def InstFormatCSS    : InstFormat<10>;
-def InstFormatCIW    : InstFormat<11>;
-def InstFormatCL     : InstFormat<12>;
-def InstFormatCS     : InstFormat<13>;
-def InstFormatCA     : InstFormat<14>;
-def InstFormatCB     : InstFormat<15>;
-def InstFormatCJ     : InstFormat<16>;
-def InstFormatOther  : InstFormat<17>;
+def InstFormatI      : InstFormat<2>;
+def InstFormatJ      : InstFormat<3>;
+def InstFormatOther  : InstFormat<4>;
 
-// The following opcode names match those given in Table 19.1 in the
-// RISC-V User-level ISA specification ("RISC-V base opcode map").
-class DLXOpcode<bits<7> val> {
-  bits<7> Value = val;
+class DLXOpcode<bits<6> val> {
+  bits<6> Value = val;
 }
-def OPC_LOAD      : DLXOpcode<0b0000011>;
-def OPC_LOAD_FP   : DLXOpcode<0b0000111>;
-def OPC_MISC_MEM  : DLXOpcode<0b0001111>;
-def OPC_OP_IMM    : DLXOpcode<0b0010011>;
-def OPC_AUIPC     : DLXOpcode<0b0010111>;
-def OPC_OP_IMM_32 : DLXOpcode<0b0011011>;
-def OPC_STORE     : DLXOpcode<0b0100011>;
-def OPC_STORE_FP  : DLXOpcode<0b0100111>;
-def OPC_AMO       : DLXOpcode<0b0101111>;
-def OPC_OP        : DLXOpcode<0b0110011>;
-def OPC_LUI       : DLXOpcode<0b0110111>;
-def OPC_OP_32     : DLXOpcode<0b0111011>;
-def OPC_MADD      : DLXOpcode<0b1000011>;
-def OPC_MSUB      : DLXOpcode<0b1000111>;
-def OPC_NMSUB     : DLXOpcode<0b1001011>;
-def OPC_NMADD     : DLXOpcode<0b1001111>;
-def OPC_OP_FP     : DLXOpcode<0b1010011>;
-def OPC_BRANCH    : DLXOpcode<0b1100011>;
-def OPC_JALR      : DLXOpcode<0b1100111>;
-def OPC_JAL       : DLXOpcode<0b1101111>;
-def OPC_SYSTEM    : DLXOpcode<0b1110011>;
+def OPC_R         : DLXOpcode<0x00>;
+def OPC_J         : DLXOpcode<0x02>;
+def OPC_JAL       : DLXOpcode<0x03>;
+def OPC_BEQZ      : DLXOpcode<0x04>;
+def OPC_BNEZ      : DLXOpcode<0x05>;
+def OPC_ADDI      : DLXOpcode<0x08>;
+def OPC_ADDUI     : DLXOpcode<0x09>;
+def OPC_SUBI      : DLXOpcode<0x0A>;
+def OPC_SUBUI     : DLXOpcode<0x0B>;
+def OPC_ANDI      : DLXOpcode<0x0C>;
+def OPC_ORI       : DLXOpcode<0x0D>;
+def OPC_XORI      : DLXOpcode<0x0E>;
+def OPC_LHI       : DLXOpcode<0x0F>;
+def OPC_JR        : DLXOpcode<0x12>;
+def OPC_JALR      : DLXOpcode<0x13>;
+def OPC_SLLI      : DLXOpcode<0x14>;
+def OPC_NOP       : DLXOpcode<0x15>;
+def OPC_SRLI      : DLXOpcode<0x16>;
+def OPC_SRAI      : DLXOpcode<0x17>;
+def OPC_SEQI      : DLXOpcode<0x18>;
+def OPC_SNEI      : DLXOpcode<0x19>;
+def OPC_SLTI      : DLXOpcode<0x1A>;
+def OPC_SGTI      : DLXOpcode<0x1B>;
+def OPC_SLEI      : DLXOpcode<0x1C>;
+def OPC_SGEI      : DLXOpcode<0x1D>;
+def OPC_LB        : DLXOpcode<0x20>;
+def OPC_LH        : DLXOpcode<0x21>;
+def OPC_LW        : DLXOpcode<0x23>;
+def OPC_LBU       : DLXOpcode<0x24>;
+def OPC_LHU       : DLXOpcode<0x25>;
+def OPC_SB        : DLXOpcode<0x28>;
+def OPC_SH        : DLXOpcode<0x29>;
+def OPC_SW        : DLXOpcode<0x2B>;
+def OPC_SLTUI     : DLXOpcode<0x3A>;
+def OPC_SGTUI     : DLXOpcode<0x3B>;
+def OPC_SLEUI     : DLXOpcode<0x3C>;
+def OPC_SGEUI     : DLXOpcode<0x3D>;
+
+class DLXFunc<bits<11> val> {
+  bits<11> Value = val;
+}
+def FUNC_SLL     : DLXFunc<0x04>;
+def FUNC_SRL     : DLXFunc<0x06>;
+def FUNC_SRA     : DLXFunc<0x07>;
+def FUNC_ADD     : DLXFunc<0x20>;
+def FUNC_ADDU    : DLXFunc<0x21>;
+def FUNC_SUB     : DLXFunc<0x22>;
+def FUNC_SUBU    : DLXFunc<0x23>;
+def FUNC_AND     : DLXFunc<0x24>;
+def FUNC_OR      : DLXFunc<0x25>;
+def FUNC_XOR     : DLXFunc<0x26>;
+def FUNC_SEQ     : DLXFunc<0x28>;
+def FUNC_SNE     : DLXFunc<0x29>;
+def FUNC_SLT     : DLXFunc<0x2A>;
+def FUNC_SGT     : DLXFunc<0x2B>;
+def FUNC_SLE     : DLXFunc<0x2C>;
+def FUNC_SGE     : DLXFunc<0x2D>;
+def FUNC_SLTU    : DLXFunc<0x3A>;
+def FUNC_SGTU    : DLXFunc<0x3B>;
+def FUNC_SLEU    : DLXFunc<0x3C>;
+def FUNC_SGEU    : DLXFunc<0x3D>;
 
 class RWInst<dag outs, dag ins, string opcodestr, string argstr,
              list<dag> pattern, InstFormat format>
@@ -89,6 +114,7 @@ class RWInst<dag outs, dag ins, string opcodestr, string argstr,
   let Size = 4;
 
   bits<7> Opcode = 0;
+  bits<11> Func = 0;
 
   let Inst{6-0} = Opcode;
 
@@ -111,35 +137,39 @@ class Pseudo<dag outs, dag ins, list<dag> pattern, string opcodestr = "",
   let isCodeGenOnly = 1;
 }
 
-// Instruction formats are listed in the order they appear in the RISC-V
-// instruction set manual (R, I, S, B, U, J) with sub-formats (e.g. RWInstR4,
-// RWInstRAtomic) sorted alphabetically.
-
-class RWInstR<bits<7> funct7, bits<3> funct3, DLXOpcode opcode, dag outs,
+class RWInstR<DLXFunc func, DLXOpcode opcode, dag outs,
               dag ins, string opcodestr, string argstr>
     : RWInst<outs, ins, opcodestr, argstr, [], InstFormatR> {
   bits<5> rs2;
   bits<5> rs1;
   bits<5> rd;
 
-  let Inst{31-25} = funct7;
-  let Inst{24-20} = rs2;
-  let Inst{19-15} = rs1;
-  let Inst{14-12} = funct3;
-  let Inst{11-7} = rd;
-  let Opcode = opcode.Value;
+  let Inst{20-16} = rd;
+  let Inst{15-11} = rs2;
+  let Inst{10-6} = rs1;
+
+  let Func    = func.Value;
+  let Opcode  = opcode.Value;
 }
 
-class RWInstI<bits<3> funct3, DLXOpcode opcode, dag outs, dag ins,
+class RWInstI<DLXOpcode opcode, dag outs, dag ins,
               string opcodestr, string argstr>
     : RWInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
-  bits<12> imm12;
+  bits<16> imm16;
   bits<5> rs1;
   bits<5> rd;
 
-  let Inst{31-20} = imm12;
-  let Inst{19-15} = rs1;
-  let Inst{14-12} = funct3;
+  let Inst{31-16} = imm16;
   let Inst{11-7} = rd;
+  let Inst{10-6} = rs1;
+  let Opcode = opcode.Value;
+}
+
+class RWInstJ<DLXOpcode opcode, dag outs, dag ins,
+              string opcodestr, string argstr>
+    : RWInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
+  bits<26> imm26;
+
+  let Inst{31-6} = imm26;
   let Opcode = opcode.Value;
 }
