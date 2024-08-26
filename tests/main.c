@@ -1,9 +1,6 @@
-#include <stdio.h>
 
-int main(void)
+int test(int a, int b)
 {
-    printf("Hello world!\n");
-
-    return 0;
+	return a + b;
 }
 

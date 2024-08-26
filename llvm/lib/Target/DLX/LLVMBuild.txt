@@ -38,7 +38,7 @@ has_asmprinter = 1
 [component_1]
 type = Library
 name = DLXCodeGen
-# The DLXCodeGen component Library is located in the RISCW directory
+# The DLXCodeGen component Library is located in the DLX directory
 parent = DLX
 # If given, a list of the names of Library or LibraryGroup components which
 # must also be linked to this library. That is, the link time # dependencies

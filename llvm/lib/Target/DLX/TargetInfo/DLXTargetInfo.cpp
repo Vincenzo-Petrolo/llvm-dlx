@@ -18,6 +18,6 @@ Target &llvm::getTheDLXTarget() {
 }
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeDLXTargetInfo() {
-  RegisterTarget<Triple::riscw> X(getTheDLXTarget(), "riscw",
-                                  "32-bit RISC-V", "DLX");
+  RegisterTarget<Triple::dlx32> X(getTheDLXTarget(), "dlx32",
+                                  "32-bit DLX", "DLX");
 }
