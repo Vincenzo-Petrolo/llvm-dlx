@@ -75,7 +75,7 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_CallSeqEnd,
 
 include "DLXInstrFormats.td"
 
-let Defs = [R2], Uses = [XR] in {
+let Defs = [R2], Uses = [R2] in {
 def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                               [(callseq_start timm:$amt1, timm:$amt2)]>;
 def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
@@ -94,12 +94,12 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 */
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-class ALU_rr<bit<11> func11, string opcodestr>
+class ALU_rr<DLXFunc func11, string opcodestr>
     : DLXInstR<func11, OPC_R, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
               opcodestr, "$rd, $rs1, $rs2">;
 
 /* R-Type definitions */
-def SLL  : ALU_rr<FUNC_SSL, "sll">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+def SLL  : ALU_rr<FUNC_SLL, "sll">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 def SRL  : ALU_rr<FUNC_SRL, "srl">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 def SRA  : ALU_rr<FUNC_SRA, "sra">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 def ADD  : ALU_rr<FUNC_ADD, "add">, Sched<[WriteIALU, ReadIALU, ReadIALU]>;
@@ -129,9 +129,9 @@ def : PatGprGpr<shl, SLL>;
 def : PatGprGpr<srl, SRL>;
 def : PatGprGpr<sra, SRA>;
 def : PatGprGpr<add, ADD>;
-def : PatGprGpr<addu,ADD>; //? not clear how to pattern uadd
+def : PatGprGpr<add, ADDU>; //? not clear how to pattern uadd
 def : PatGprGpr<sub, SUB>;
-def : PatGprGpr<subu,SUB>;
+def : PatGprGpr<sub, SUBU>;
 def : PatGprGpr<and, AND>;
 def : PatGprGpr<or,  OR>;
 def : PatGprGpr<xor, XOR>;
@@ -161,8 +161,7 @@ def : PatGprGpr<setuge,SGEU>;
 /* Arithmetic and logic I-Type class */
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ALU_ri<DLXOpcode opcode, string opcodestr>
-    : DLXInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16)
-              opcodestr, "$rd, $rs1, $imm16">,
+    : DLXInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16), opcodestr, "$rd, $rs1, $imm16">,
       Sched<[WriteIALU, ReadIALU]>;
 
 
@@ -257,7 +256,7 @@ def : StPat<store, SW>;
 def BEQZ : ALU_ri<OPC_BEQZ, "beqz">;
 def BNEZ : ALU_ri<OPC_BNEZ, "bnez">;
 
-class BccPat<PatFrag CondOp, RVInstB Inst>
+class BccPat<PatFrag CondOp, DLXInst Inst>
     : Pat<(brcond (CondOp GPR:$rs1, 0), simm16:$imm16),
           (Inst GPR:$rs1, GPR:$rs2, simm16:$imm16)>;
 
@@ -276,7 +275,7 @@ def : BccPat<setne, BNEZ>;
 
 */
 
-def JR  : DLXInstJ<OPC_JALR, (), (ins GPR:$rs1), "jr", "$rs1">, 
+def JR  : DLXInstJ<OPC_JALR, (outs ), (ins GPR:$rs1), "jr", "$rs1">, 
     Sched<[ReadJalr]>;
 
 // This is for calling functions
@@ -293,7 +292,7 @@ def PseudoRET : Pseudo<(outs), (ins), [(dlx_ret)]>,
 def : InstAlias<"ret",                   (JR      R31), 4>;
 
 /* J-Type definitions */
-def J    : DLXInstJ<OPC_J, (), (ins GPR:$rs1), "jal", "$imm26">, 
+def J    : DLXInstJ<OPC_J, (outs ), (ins GPR:$rs1), "jal", "$imm26">, 
     Sched<[ReadJalr]>;
 def JAL  : DLXInstJ<OPC_JALR, (outs R31), (ins GPR:$rs1), "jal", "$rs1">, 
     Sched<[ReadJalr]>;

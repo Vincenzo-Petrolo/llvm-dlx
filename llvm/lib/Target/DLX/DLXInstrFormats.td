@@ -116,7 +116,7 @@ class DLXInst<dag outs, dag ins, string opcodestr, string argstr,
   bits<6> Opcode = 0;
   bits<11> Func = 0;
 
-  let Inst{6-0} = Opcode;
+  let Inst{5-0} = Opcode;
 
   let Namespace = "DLX";
 
