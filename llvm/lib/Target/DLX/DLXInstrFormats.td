@@ -113,7 +113,7 @@ class DLXInst<dag outs, dag ins, string opcodestr, string argstr,
   field bits<32> SoftFail = 0;
   let Size = 4;
 
-  bits<7> Opcode = 0;
+  bits<6> Opcode = 0;
   bits<11> Func = 0;
 
   let Inst{6-0} = Opcode;

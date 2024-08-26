@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 let Namespace = "DLR" in {
-class DLRReg<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
+class DLXReg<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
   let HWEncoding{4-0} = Enc;
   let AltNames = alt;
 }
