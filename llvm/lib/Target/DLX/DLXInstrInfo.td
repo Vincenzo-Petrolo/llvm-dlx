@@ -281,7 +281,7 @@ def JR  : DLXInstJ<OPC_JALR, (outs ), (ins GPR:$rs1), "jr", "$rs1">,
 // This is for calling functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 let isCall = 1 in
-def JALR : DLXInstJ<OPC_JALR, (outs R31), (ins GPR:$rs1), "jalr", "$rs1">, 
+def JALR : DLXInstJ<OPC_JALR, (outs GPR:$r31), (ins GPR:$rs1), "jalr", "$rs1">, 
     Sched<[ReadJalr]>;
 }
 
@@ -294,6 +294,6 @@ def : InstAlias<"ret",                   (JR      R31), 4>;
 /* J-Type definitions */
 def J    : DLXInstJ<OPC_J, (outs ), (ins GPR:$rs1), "jal", "$imm26">, 
     Sched<[ReadJalr]>;
-def JAL  : DLXInstJ<OPC_JALR, (outs R31), (ins GPR:$rs1), "jal", "$rs1">, 
+def JAL  : DLXInstJ<OPC_JAL, (outs GPR:$r31), (ins GPR:$rs1), "jal", "$rs1">, 
     Sched<[ReadJalr]>;
 
