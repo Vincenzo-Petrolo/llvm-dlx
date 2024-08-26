@@ -15,6 +15,48 @@
 // Instruction format superclass
 //===----------------------------------------------------------------------===//
 
+class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
+  let Name = prefix # "Imm" # width # suffix;
+  let RenderMethod = "addImmOperands";
+  let DiagnosticType = !strconcat("Invalid", Name);
+}
+
+class SImmAsmOperand<int width, string suffix = "">
+    : ImmAsmOperand<"S", width, suffix> {
+}
+
+class UImmAsmOperand<int width, string suffix = "">
+    : ImmAsmOperand<"U", width, suffix> {
+}
+
+def simm16 : Operand<i32>, ImmLeaf<i32, [{return isInt<16>(Imm);}]> {
+  let ParserMatchClass = SImmAsmOperand<16>;
+  let EncoderMethod = "getImmOpValue";
+  let DecoderMethod = "decodeSImmOperand<16>";
+  let MCOperandPredicate = [{
+    int64_t Imm;
+    if (MCOp.evaluateAsConstantImm(Imm))
+      return isInt<16>(Imm);
+    return MCOp.isBareSymbolRef();
+  }];
+  let OperandType = "OPERAND_SIMM16";
+  let OperandNamespace = "DLXOp";
+}
+
+def uimm16 : Operand<i32>, ImmLeaf<i32, [{return isUInt<16>(Imm);}]> {
+  let ParserMatchClass = UImmAsmOperand<16>;
+  let EncoderMethod = "getImmOpValue";
+  let DecoderMethod = "decodeSImmOperand<16>";
+  let MCOperandPredicate = [{
+    int64_t Imm;
+    if (MCOp.evaluateAsConstantImm(Imm))
+      return isInt<16>(Imm);
+    return MCOp.isBareSymbolRef();
+  }];
+  let OperandType = "OPERAND_SIMM16";
+  let OperandNamespace = "DLXOp";
+}
+
 // Procedure return
 def dlx_ret : SDNode<"DLXISD::Ret", SDTNone,
                        [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
@@ -78,17 +120,31 @@ def SGTU : ALU_rr<FUNC_SGTU,"sgtu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 def SLEU : ALU_rr<FUNC_SLEU,"sleu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 def SGEU : ALU_rr<FUNC_SGEU,"sgeu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
+/* Patterns for Instruction Selection */
+// Available pattern operators are found in TargetSelectionDAG.td
 class PatGprGpr<SDPatternOperator OpNode, RWInst Inst>
     : Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
 
+def : PatGprGpr<shl, SLL>;
+def : PatGprGpr<srl, SRL>;
+def : PatGprGpr<sra, SRA>;
 def : PatGprGpr<add, ADD>;
-
-/* Arithmetic and logic I-Type class */
-class ALU_ri<DLXOpcode opcode, string opcodestr>
-    : RWInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16)
-              opcodestr, "$rd, $rs1, $imm16">,
-      Sched<[WriteIALU, ReadIALU]>;
-
+def : PatGprGpr<addu,ADD>; //? not clear how to pattern uadd
+def : PatGprGpr<sub, SUB>;
+def : PatGprGpr<subu,SUB>;
+def : PatGprGpr<and, AND>;
+def : PatGprGpr<or,  OR>;
+def : PatGprGpr<xor, XOR>;
+def : PatGprGpr<seteq, SEQ>;
+def : PatGprGpr<setne, SNE>;
+def : PatGprGpr<setlt, SLT>;
+def : PatGprGpr<setgt, SGT>;
+def : PatGprGpr<setle, SLE>;
+def : PatGprGpr<setge, SGE>;
+def : PatGprGpr<setult,SLTU>;
+def : PatGprGpr<setugt,SGTU>;
+def : PatGprGpr<setule,SLEU>;
+def : PatGprGpr<setuge,SGEU>;
 
 
 /*  
@@ -101,6 +157,14 @@ class ALU_ri<DLXOpcode opcode, string opcodestr>
                 __/ | |         
                |___/|_|         
 */
+
+/* Arithmetic and logic I-Type class */
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+class ALU_ri<DLXOpcode opcode, string opcodestr>
+    : RWInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16)
+              opcodestr, "$rd, $rs1, $imm16">,
+      Sched<[WriteIALU, ReadIALU]>;
+
 
 // Arithmetics
 // -----------
@@ -126,6 +190,34 @@ def SLTUI : ALU_ri<OPC_SLTUI,"sltui">;
 def SGTUI : ALU_ri<OPC_SGTUI,"sgtui">;
 def SLEUI : ALU_ri<OPC_SLEUI,"sleui">;
 def SGEUI : ALU_ri<OPC_SGEUI,"sgeui">;
+
+/* Patterns I-Type Arithmetics */
+// Available pattern operators are found in TargetSelectionDAG.td
+class PatGprSimm16<SDPatternOperator OpNode, RWInstI Inst>
+    : Pat<(OpNode GPR:$rs1, simm16:$imm16), (Inst GPR:$rs1, simm16:$imm16)>;
+class PatGprUimm16<SDPatternOperator OpNode, RWInstI Inst>
+    : Pat<(OpNode GPR:$rs1, uimm16:$imm16), (Inst GPR:$rs1, uimm16:$imm16)>;
+
+def : PatGprSimm16<add, ADDI>;
+def : PatGprUimm16<add, ADDUI>;
+def : PatGprSimm16<sub, SUBI>;
+def : PatGprUimm16<sub, SUBUI>;
+def : PatGprSimm16<and, ANDI>;
+def : PatGprSimm16<or,  ORI>;
+def : PatGprSimm16<xor, XORI>;
+def : PatGprSimm16<shl, SLLI>;
+def : PatGprSimm16<srl, SRLI>;
+def : PatGprSimm16<sra, SRAI>;
+def : PatGprSimm16<seteq, SEQI>;
+def : PatGprSimm16<setne, SNEI>;
+def : PatGprSimm16<setlt, SLTI>;
+def : PatGprSimm16<setgt, SGTI>;
+def : PatGprSimm16<setle, SLEI>;
+def : PatGprSimm16<setge, SGEI>;
+def : PatGprUimm16<setult,SLTUI>;
+def : PatGprUimm16<setugt,SGTUI>;
+def : PatGprUimm16<setule,SLEUI>;
+def : PatGprUimm16<setuge,SGEUI>;
 
 // Load and store
 // --------------
