@@ -102,7 +102,7 @@ def FUNC_SGTU    : DLXFunc<0x3B>;
 def FUNC_SLEU    : DLXFunc<0x3C>;
 def FUNC_SGEU    : DLXFunc<0x3D>;
 
-class RWInst<dag outs, dag ins, string opcodestr, string argstr,
+class DLXInst<dag outs, dag ins, string opcodestr, string argstr,
              list<dag> pattern, InstFormat format>
     : Instruction {
   field bits<32> Inst;
@@ -131,15 +131,15 @@ class RWInst<dag outs, dag ins, string opcodestr, string argstr,
 // Pseudo instructions
 class Pseudo<dag outs, dag ins, list<dag> pattern, string opcodestr = "",
              string argstr = "">
-    : RWInst<outs, ins, opcodestr, argstr, pattern, InstFormatPseudo>,
+    : DLXInst<outs, ins, opcodestr, argstr, pattern, InstFormatPseudo>,
       Sched<[]> {
   let isPseudo = 1;
   let isCodeGenOnly = 1;
 }
 
-class RWInstR<DLXFunc func, DLXOpcode opcode, dag outs,
+class DLXInstR<DLXFunc func, DLXOpcode opcode, dag outs,
               dag ins, string opcodestr, string argstr>
-    : RWInst<outs, ins, opcodestr, argstr, [], InstFormatR> {
+    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatR> {
   bits<5> rs2;
   bits<5> rs1;
   bits<5> rd;
@@ -152,9 +152,9 @@ class RWInstR<DLXFunc func, DLXOpcode opcode, dag outs,
   let Opcode  = opcode.Value;
 }
 
-class RWInstI<DLXOpcode opcode, dag outs, dag ins,
+class DLXInstI<DLXOpcode opcode, dag outs, dag ins,
               string opcodestr, string argstr>
-    : RWInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
+    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
   bits<16> imm16;
   bits<5> rs1;
   bits<5> rd;
@@ -165,9 +165,9 @@ class RWInstI<DLXOpcode opcode, dag outs, dag ins,
   let Opcode = opcode.Value;
 }
 
-class RWInstJ<DLXOpcode opcode, dag outs, dag ins,
+class DLXInstJ<DLXOpcode opcode, dag outs, dag ins,
               string opcodestr, string argstr>
-    : RWInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
+    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
   bits<26> imm26;
 
   let Inst{31-6} = imm26;

@@ -95,7 +95,7 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ALU_rr<bit<11> func11, string opcodestr>
-    : RWInstR<func11, OPC_R, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+    : DLXInstR<func11, OPC_R, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
               opcodestr, "$rd, $rs1, $rs2">;
 
 /* R-Type definitions */
@@ -122,7 +122,7 @@ def SGEU : ALU_rr<FUNC_SGEU,"sgeu">,Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 /* Patterns for Instruction Selection */
 // Available pattern operators are found in TargetSelectionDAG.td
-class PatGprGpr<SDPatternOperator OpNode, RWInst Inst>
+class PatGprGpr<SDPatternOperator OpNode, DLXInst Inst>
     : Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
 
 def : PatGprGpr<shl, SLL>;
@@ -161,7 +161,7 @@ def : PatGprGpr<setuge,SGEU>;
 /* Arithmetic and logic I-Type class */
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ALU_ri<DLXOpcode opcode, string opcodestr>
-    : RWInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16)
+    : DLXInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16)
               opcodestr, "$rd, $rs1, $imm16">,
       Sched<[WriteIALU, ReadIALU]>;
 
@@ -193,9 +193,9 @@ def SGEUI : ALU_ri<OPC_SGEUI,"sgeui">;
 
 /* Patterns I-Type Arithmetics */
 // Available pattern operators are found in TargetSelectionDAG.td
-class PatGprSimm16<SDPatternOperator OpNode, RWInstI Inst>
+class PatGprSimm16<SDPatternOperator OpNode, DLXInstI Inst>
     : Pat<(OpNode GPR:$rs1, simm16:$imm16), (Inst GPR:$rs1, simm16:$imm16)>;
-class PatGprUimm16<SDPatternOperator OpNode, RWInstI Inst>
+class PatGprUimm16<SDPatternOperator OpNode, DLXInstI Inst>
     : Pat<(OpNode GPR:$rs1, uimm16:$imm16), (Inst GPR:$rs1, uimm16:$imm16)>;
 
 def : PatGprSimm16<add, ADDI>;
@@ -230,6 +230,28 @@ def SB  : ALU_ri<OPC_SB,  "sb">;
 def SH  : ALU_ri<OPC_SH,  "sh">;
 def SW  : ALU_ri<OPC_SW,  "sw">;
 
+class LdPat<PatFrag LoadOp, DLXInstI Inst>
+    : Pat<(LoadOp (add GPR:$rs1, simm16:$imm16)),
+            (Inst GPR:$rs1, simm16:$imm16)>;
+
+class ULdPat<PatFrag LoadOp, DLXInstI Inst>
+    : Pat<(LoadOp (add GPR:$rs1, simm16:$imm16)),
+            (Inst GPR:$rs1, simm16:$imm16)>;
+
+def : LdPat<sextloadi8, LB>;
+def : LdPat<sextloadi16, LH>;
+def : LdPat<load, LW>;
+def : ULdPat<zextloadi8, LBU>;
+def : ULdPat<zextloadi16, LHU>;
+
+class StPat<PatFrag StoreOp, DLXInstI Inst>
+    : Pat<(StoreOp (add GPR:$rs1, simm16:$imm16), GPR:$rs2),
+            (Inst GPR:$rs1, simm16:$imm16, GPR:$rs2)>;
+
+def : StPat<truncstorei8, SB>;
+def : StPat<truncstorei16, SH>;
+def : StPat<store, SW>;
+
 // Branches
 // --------
 def BEQZ : ALU_ri<OPC_BEQZ, "beqz">;
@@ -247,7 +269,7 @@ def BNEZ : ALU_ri<OPC_BNEZ, "bnez">;
 
 */
 class ALU_JR<DLXOpcode opcode, string opcodestr>
-    : RWInstJ<opcode, (), (ins GPR:$rs1)
+    : DLXInstJ<opcode, (), (ins GPR:$rs1)
               opcodestr, "$rs1">,
       Sched<[ReadIALU]>;
 
@@ -257,7 +279,7 @@ def JR   : ALU_JR<OPC_JR,   "jr">;
 // This is for calling functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 let isCall = 1 in
-def JALR : RWInstJ<OPC_JALR, (), (ins GPR:$rs1), "jalr", "$rs1">, Sched<[ReadJalr]>;
+def JALR : DLXInstJ<OPC_JALR, (), (ins GPR:$rs1), "jalr", "$rs1">, Sched<[ReadJalr]>;
 }
 
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
@@ -268,7 +290,7 @@ def : InstAlias<"ret",                   (JR      R31), 4>;
 
 /* Pure J-Type class */
 class ALU_J<DLXOpcode opcode, string opcodestr>
-    : RWInstJ<opcode, (), (ins i32imm:$imm26)
+    : DLXInstJ<opcode, (), (ins i32imm:$imm26)
               opcodestr, "$imm26">,
       Sched<[]>;
 
