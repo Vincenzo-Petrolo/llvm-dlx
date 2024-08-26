@@ -1,0 +1,55 @@
+;===- ./lib/Target/DLX/LLVMBuild.txt -------------------------*- Conf -*--===;
+;
+;                     The LLVM Compiler Infrastructure
+;
+; This file is distributed under the University of Illinois Open Source
+; License. See LICENSE.TXT for details.
+;
+;===------------------------------------------------------------------------===;
+;
+; This is an LLVMBuild description file for the components in this subdirectory.
+;
+; For more information on the LLVMBuild system, please see:
+;
+;   http://llvm.org/docs/LLVMBuild.html
+;
+;===------------------------------------------------------------------------===;
+
+[common]
+# Declare any build subdirectories
+subdirectories = MCTargetDesc TargetInfo
+
+[component_0]
+# TargetGroup components are an extension of LibraryGroups, specifically for
+#  defining LLVM targets (which are handled specially in a few places)
+type = TargetGroup
+# The name of the component should always be the name of the target. It must
+# match
+#   def DLX : Target
+# tablegen code in DLX.td
+name = DLX
+# The DLX component is located in Target directory
+parent = Target
+# This target defines an assembly printer. Further has_* statements must be
+# set here when the backend has more feathres such as assembly parser, JIT
+# compilation support, etc
+has_asmprinter = 1
+
+[component_1]
+type = Library
+name = DLXCodeGen
+# The DLXCodeGen component Library is located in the RISCW directory
+parent = DLX
+# If given, a list of the names of Library or LibraryGroup components which
+# must also be linked to this library. That is, the link time # dependencies
+# for this component
+required_libraries =
+  AsmPrinter
+  CodeGen Core MC
+  DLXDesc
+  DLXInfo
+  SelectionDAG
+  Support
+  Target
+
+add_to_library_groups = DLX
