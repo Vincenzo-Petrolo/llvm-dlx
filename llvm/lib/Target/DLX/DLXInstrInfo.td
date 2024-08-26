@@ -275,33 +275,26 @@ def : BccPat<setne, BNEZ>;
                   |___/|_|         
 
 */
-class ALU_JR<DLXOpcode opcode, string opcodestr>
-    : DLXInstJ<opcode, (), (ins GPR:$rs1)
-              opcodestr, "$rs1">,
-      Sched<[ReadIALU]>;
 
-/* JR-Type definitions */
-def JR   : ALU_JR<OPC_JR,   "jr">;
+def JR  : DLXInstJ<OPC_JALR, (), (ins GPR:$rs1), "jr", "$rs1">, 
+    Sched<[ReadJalr]>;
 
 // This is for calling functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 let isCall = 1 in
-def JALR : DLXInstJ<OPC_JALR, (), (ins GPR:$rs1), "jalr", "$rs1">, Sched<[ReadJalr]>;
+def JALR : DLXInstJ<OPC_JALR, (outs R31), (ins GPR:$rs1), "jalr", "$rs1">, 
+    Sched<[ReadJalr]>;
 }
 
+// Return from function
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
 def PseudoRET : Pseudo<(outs), (ins), [(dlx_ret)]>,
                 PseudoInstExpansion<(JR R31)>;
-
 def : InstAlias<"ret",                   (JR      R31), 4>;
 
-/* Pure J-Type class */
-class ALU_J<DLXOpcode opcode, string opcodestr>
-    : DLXInstJ<opcode, (), (ins i32imm:$imm26)
-              opcodestr, "$imm26">,
-      Sched<[]>;
-
 /* J-Type definitions */
-def J    : ALU_J<OPC_J,    "j">;
-def JAL  : ALU_J<OPC_JAL,  "jal">;
+def J    : DLXInstJ<OPC_J, (), (ins GPR:$rs1), "jal", "$imm26">, 
+    Sched<[ReadJalr]>;
+def JAL  : DLXInstJ<OPC_JALR, (outs R31), (ins GPR:$rs1), "jal", "$rs1">, 
+    Sched<[ReadJalr]>;
 
