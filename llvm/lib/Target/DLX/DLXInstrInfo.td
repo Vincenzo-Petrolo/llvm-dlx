@@ -257,6 +257,13 @@ def : StPat<store, SW>;
 def BEQZ : ALU_ri<OPC_BEQZ, "beqz">;
 def BNEZ : ALU_ri<OPC_BNEZ, "bnez">;
 
+class BccPat<PatFrag CondOp, RVInstB Inst>
+    : Pat<(brcond (CondOp GPR:$rs1, 0), simm16:$imm16),
+          (Inst GPR:$rs1, GPR:$rs2, simm16:$imm16)>;
+
+def : BccPat<seteq, BEQZ>;
+def : BccPat<setne, BNEZ>;
+
 /* 
        _     _______               
       | |   |__   __|              
