@@ -167,7 +167,7 @@ class DLXInstI<DLXOpcode opcode, dag outs, dag ins,
 
 class DLXInstJ<DLXOpcode opcode, dag outs, dag ins,
               string opcodestr, string argstr>
-    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
+    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatJ> {
   bits<26> imm26;
 
   let Inst{31-6} = imm26;

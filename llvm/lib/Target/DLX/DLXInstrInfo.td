@@ -43,6 +43,34 @@ def simm16 : Operand<i32>, ImmLeaf<i32, [{return isInt<16>(Imm);}]> {
   let OperandNamespace = "DLXOp";
 }
 
+def brtarget : Operand<OtherVT> {
+  let ParserMatchClass = SImmAsmOperand<16>;
+  let EncoderMethod = "getImmOpValue";
+  let DecoderMethod = "decodeSImmOperand<16>";
+  let MCOperandPredicate = [{
+    int64_t Imm;
+    if (MCOp.evaluateAsConstantImm(Imm))
+      return isInt<16>(Imm);
+    return MCOp.isBareSymbolRef();
+  }];
+  let OperandType = "OPERAND_SIMM16";
+  let OperandNamespace = "DLXOp";
+}
+
+def jmptarget : Operand<OtherVT> {
+  let ParserMatchClass = SImmAsmOperand<26>;
+  let EncoderMethod = "getImmOpValue";
+  let DecoderMethod = "decodeSImmOperand<26>";
+  let MCOperandPredicate = [{
+    int64_t Imm;
+    if (MCOp.evaluateAsConstantImm(Imm))
+      return isInt<26>(Imm);
+    return MCOp.isBareSymbolRef();
+  }];
+  let OperandType = "OPERAND_SIMM26";
+  let OperandNamespace = "DLXOp";
+}
+
 def uimm16 : Operand<i32>, ImmLeaf<i32, [{return isUInt<16>(Imm);}]> {
   let ParserMatchClass = UImmAsmOperand<16>;
   let EncoderMethod = "getImmOpValue";
@@ -262,15 +290,20 @@ def : StPat<store, SW>;
 
 // Branches
 // --------
-def BEQZ : ALU_ri<OPC_BEQZ, "beqz">;
-def BNEZ : ALU_ri<OPC_BNEZ, "bnez">;
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+class BranchCC_ri<DLXOpcode Opcode, string opcodestr>
+    : DLXInstI<Opcode, (outs),
+              (ins GPR:$rs1, brtarget:$imm16),
+              opcodestr, "$rs1, $imm16">,
+      Sched<[WriteJmp]> {
+  let isBranch = 1;
+  let isTerminator = 1;
+}
+def BEQZ : BranchCC_ri<OPC_BEQZ, "beqz">;
+def BNEZ : BranchCC_ri<OPC_BNEZ, "bnez">;
 
-class BccPat<PatFrag CondOp, DLXInst Inst>
-    : Pat<(brcond (CondOp GPR:$rs1, 0), simm16:$imm16),
-          (Inst GPR:$rs1, GPR:$rs2, simm16:$imm16)>;
-
-def : BccPat<seteq, BEQZ>;
-def : BccPat<setne, BNEZ>;
+def : Pat<(brcond (i32 (seteq GPR:$rs1, 0)), bb:$imm16), (BEQZ GPR:$rs1, brtarget:$imm16)>;
+def : Pat<(brcond (i32 (setne GPR:$rs1, 0)), bb:$imm16), (BNEZ GPR:$rs1, brtarget:$imm16)>;
 
 /* 
        _     _______               
@@ -301,8 +334,8 @@ def PseudoRET : Pseudo<(outs), (ins), [(dlx_ret)]>,
 def : InstAlias<"ret",                   (JR      R31), 4>;
 
 /* J-Type definitions */
-def J    : DLXInstJ<OPC_J, (outs ), (ins GPR:$rs1), "jal", "$imm26">, 
-    Sched<[ReadJalr]>;
+def J    : DLXInstJ<OPC_J, (outs), (ins jmptarget:$imm26), "j", "$imm26">, 
+    Sched<[]>;
 def JAL  : DLXInstJ<OPC_JAL, (outs GPR:$r31), (ins GPR:$rs1), "jal", "$rs1">, 
     Sched<[ReadJalr]>;
 
