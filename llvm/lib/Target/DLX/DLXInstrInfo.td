@@ -220,14 +220,23 @@ def : PatGprUimm16<setuge,SGEUI>;
 
 // Load and store
 // --------------
-def LB  : ALU_ri<OPC_LB,  "lb">;
-def LH  : ALU_ri<OPC_LH,  "lh">;
-def LW  : ALU_ri<OPC_LW,  "lw">;
-def LBU : ALU_ri<OPC_LBU, "lbu">;
-def LHU : ALU_ri<OPC_LHU, "lhu">;
-def SB  : ALU_ri<OPC_SB,  "sb">;
-def SH  : ALU_ri<OPC_SH,  "sh">;
-def SW  : ALU_ri<OPC_SW,  "sw">;
+let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
+class Load_ri<DLXOpcode opcode, string opcodestr>
+    : DLXInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16), opcodestr, "$rd, ${imm16}(${rs1})">;
+
+def LB  : Load_ri<OPC_LB,  "lb">, Sched<[WriteLDB, ReadMemBase]>;
+def LH  : Load_ri<OPC_LH,  "lh">, Sched<[WriteLDH, ReadMemBase]>;
+def LW  : Load_ri<OPC_LW,  "lw">, Sched<[WriteLDW, ReadMemBase]>;
+def LBU : Load_ri<OPC_LBU, "lbu">, Sched<[WriteLDB, ReadMemBase]>;
+def LHU : Load_ri<OPC_LHU, "lhu">, Sched<[WriteLDH, ReadMemBase]>;
+
+let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
+class Store_rri<DLXOpcode opcode, string opcodestr>
+    : DLXInstI<opcode, (outs), (ins GPR:$rs2, GPR:$rs1, simm16:$imm16), opcodestr, "${imm16}(${rs1}), $rs2">;
+
+def SB  : Store_rri<OPC_SB,  "sb">, Sched<[WriteSTB, ReadStoreData, ReadMemBase]>;
+def SH  : Store_rri<OPC_SH,  "sh">, Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
+def SW  : Store_rri<OPC_SW,  "sw">, Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
 
 class LdPat<PatFrag LoadOp, DLXInstI Inst>
     : Pat<(LoadOp (add GPR:$rs1, simm16:$imm16)),
@@ -244,8 +253,8 @@ def : ULdPat<zextloadi8, LBU>;
 def : ULdPat<zextloadi16, LHU>;
 
 class StPat<PatFrag StoreOp, DLXInstI Inst>
-    : Pat<(StoreOp (add GPR:$rs1, simm16:$imm16), GPR:$rs2),
-            (Inst GPR:$rs1, simm16:$imm16, GPR:$rs2)>;
+    : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm16:$imm16)),
+            (Inst GPR:$rs2, GPR:$rs1, simm16:$imm16)>;
 
 def : StPat<truncstorei8, SB>;
 def : StPat<truncstorei16, SH>;
