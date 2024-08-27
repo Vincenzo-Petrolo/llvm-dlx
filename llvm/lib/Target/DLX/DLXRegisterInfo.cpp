@@ -23,7 +23,7 @@
 using namespace llvm;
 
 DLXRegisterInfo::DLXRegisterInfo(const DLXSubtarget &ST)
-  : DLXGenRegisterInfo(DLX::X1, /*DwarfFlavour*/0, /*EHFlavor*/0,
+  : DLXGenRegisterInfo(DLX::R1, /*DwarfFlavour*/0, /*EHFlavor*/0,
                          /*PC*/0), Subtarget(ST) {}
 
 const MCPhysReg *
@@ -44,10 +44,10 @@ DLXRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
 BitVector DLXRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
 
-  markSuperRegs(Reserved, DLX::X0); // zero
-  markSuperRegs(Reserved, DLX::X2); // sp
-  markSuperRegs(Reserved, DLX::X3); // gp
-  markSuperRegs(Reserved, DLX::X4); // tp
+  markSuperRegs(Reserved, DLX::R0); // zero
+  markSuperRegs(Reserved, DLX::R2); // sp
+  markSuperRegs(Reserved, DLX::R3); // gp
+  markSuperRegs(Reserved, DLX::R4); // tp
 
   return Reserved;
 }

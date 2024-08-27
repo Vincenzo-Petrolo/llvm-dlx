@@ -100,7 +100,7 @@ void DLXTargetLowering::ReplaceNodeResults(SDNode *N,
 
 // The BeyondRISC calling convention parameter registers.
 static const MCPhysReg GPRArgRegs[] = {
-  DLX::X0, DLX::X1, DLX::X2, DLX::X3
+  DLX::R0, DLX::R1, DLX::R2, DLX::R3
 };
 
 /// LowerFormalArguments - transform physical registers into virtual registers
@@ -135,7 +135,7 @@ SDValue DLXTargetLowering::LowerFormalArguments(
   // We need to know this before we allocate the first byval or variadic
   // argument, as they will be allocated a stack slot below the CFA (Canonical
   // Frame Address, the stack pointer at entry to the function).
-  unsigned ArgRegBegin = DLX::X4;
+  unsigned ArgRegBegin = DLX::R4;
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     if (CCInfo.getInRegsParamsProcessed() >= CCInfo.getInRegsParamsCount())
       break;
@@ -324,14 +324,14 @@ void DLXTargetLowering::HandleByVal(CCState *State, unsigned &Size,
     return;
 
   unsigned AlignInRegs = Align / 4;
-  unsigned Waste = (DLX::X4 - Reg) % AlignInRegs;
+  unsigned Waste = (DLX::R4 - Reg) % AlignInRegs;
   for (unsigned i = 0; i < Waste; ++i)
     Reg = State->AllocateReg(GPRArgRegs);
 
   if (!Reg)
     return;
 
-  unsigned Excess = 4 * (DLX::X4 - Reg);
+  unsigned Excess = 4 * (DLX::R4 - Reg);
 
   // Special case when NSAA != SP and parameter size greater than size of
   // all remained GPR regs. In that case we can't split parameter, we must
@@ -351,7 +351,7 @@ void DLXTargetLowering::HandleByVal(CCState *State, unsigned &Size,
   // else parameter would be splitted between registers and stack,
   // end register would be r4 in this case.
   unsigned ByValRegBegin = Reg;
-  unsigned ByValRegEnd = std::min<unsigned>(Reg + Size / 4, DLX::X4);
+  unsigned ByValRegEnd = std::min<unsigned>(Reg + Size / 4, DLX::R4);
   State->addInRegsParamInfo(ByValRegBegin, ByValRegEnd);
   // Note, first register is allocated in the beginning of function already,
   // allocate remained amount of registers we need.
