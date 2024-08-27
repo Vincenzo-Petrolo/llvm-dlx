@@ -53,7 +53,7 @@ def brtarget : Operand<OtherVT> {
       return isInt<16>(Imm);
     return MCOp.isBareSymbolRef();
   }];
-  let OperandType = "OPERAND_SIMM16";
+  let OperandType = "OPERAND_BRTARGET";
   let OperandNamespace = "DLXOp";
 }
 
@@ -67,7 +67,7 @@ def jmptarget : Operand<OtherVT> {
       return isInt<26>(Imm);
     return MCOp.isBareSymbolRef();
   }];
-  let OperandType = "OPERAND_SIMM26";
+  let OperandType = "OPERAND_JMPTARGET";
   let OperandNamespace = "DLXOp";
 }
 
@@ -81,7 +81,7 @@ def uimm16 : Operand<i32>, ImmLeaf<i32, [{return isUInt<16>(Imm);}]> {
       return isInt<16>(Imm);
     return MCOp.isBareSymbolRef();
   }];
-  let OperandType = "OPERAND_SIMM16";
+  let OperandType = "OPERAND_UIMM16";
   let OperandNamespace = "DLXOp";
 }
 

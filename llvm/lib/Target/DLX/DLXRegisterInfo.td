@@ -1,4 +1,4 @@
-//===-- DLRRegisterInfo.td - DLX Register defs ---------*- tablegen -*-===//
+//===-- DLXRegisterInfo.td - DLX Register defs ---------*- tablegen -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,7 +11,7 @@
 //  Declarations that describe the RISC-W register file
 //===----------------------------------------------------------------------===//
 
-let Namespace = "DLR" in {
+let Namespace = "DLX" in {
 class DLXReg<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
   let HWEncoding{4-0} = Enc;
   let AltNames = alt;

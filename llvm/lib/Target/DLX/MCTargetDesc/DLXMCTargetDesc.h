@@ -14,6 +14,8 @@
 #ifndef LLVM_LIB_TARGET_DLX_MCTARGETDESC_DLXMCTARGETDESC_H
 #define LLVM_LIB_TARGET_DLX_MCTARGETDESC_DLXMCTARGETDESC_H
 
+#include "DLXBaseInfo.h"
+
 // Defines symbolic names for DLX registers. This defines a mapping from
 // register name to register number.
 #define GET_REGINFO_ENUM

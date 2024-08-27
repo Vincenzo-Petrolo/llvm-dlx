@@ -67,7 +67,7 @@ static MCAsmInfo *createDLXMCAsmInfo(const MCRegisterInfo &MRI,
                                        const MCTargetOptions &Options) {
   MCAsmInfo *MAI = new DLXMCAsmInfo(TT);
 
-  unsigned WP = MRI.getDwarfRegNum(DLX::X2, true);
+  unsigned WP = MRI.getDwarfRegNum(DLX::R2, true);
   MCCFIInstruction Inst = MCCFIInstruction::createDefCfa(nullptr, WP, 0);
   MAI->addInitialFrameState(Inst);
 
