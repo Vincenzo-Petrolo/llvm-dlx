@@ -46,8 +46,7 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
 
   setStackPointerRegisterToSaveRestore(DLX::R2);
 
-  // Set scheduling preference. There are a few options:
-  //    - None: No preference
+  // Set scheduling preference. There are a few options: //    - None: No preference
   //    - Source: Follow source order
   //    - RegPressure: Scheduling for lowest register pressure
   //    - Hybrid: Scheduling for both latency and register pressure
@@ -69,6 +68,16 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   // TODO, add other operations that are missing from DLX ISA
   setOperationAction(ISD::ROTL,          MVT::i32, Expand);
   setOperationAction(ISD::ROTR,          MVT::i32, Expand);
+  setOperationAction(ISD::BR_CC,         MVT::i32, Expand);
+
+  // TODO add check on M-extension support, for now just expand
+  setOperationAction(ISD::MUL, MVT::i32, Expand);
+  setOperationAction(ISD::MULHS, MVT::i32, Expand);
+  setOperationAction(ISD::MULHU, MVT::i32, Expand);
+  setOperationAction(ISD::SDIV, MVT::i32 , Expand);
+  setOperationAction(ISD::UDIV, MVT::i32 , Expand);
+  setOperationAction(ISD::SREM, MVT::i32 , Expand);
+  setOperationAction(ISD::UREM, MVT::i32 , Expand);
 
   // Set minimum and preferred function alignment (log2)
   setMinFunctionAlignment(Align(1));
@@ -462,6 +471,7 @@ DLXTargetLowering::LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const {
 SDValue
 DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
+  // case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
   case ISD::GlobalAddress:        return LowerGlobalAddress(Op, DAG);
   case ISD::BlockAddress:         return LowerBlockAddress(Op, DAG);
   case ISD::ConstantPool:         return LowerConstantPool(Op, DAG);

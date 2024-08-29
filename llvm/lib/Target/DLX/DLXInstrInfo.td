@@ -85,6 +85,16 @@ def uimm16 : Operand<i32>, ImmLeaf<i32, [{return isUInt<16>(Imm);}]> {
   let OperandNamespace = "DLXOp";
 }
 
+def i32imm_li : Operand<i32>, ImmLeaf<i32, [{return isInt<32>(Imm);}]> {
+  let ParserMatchClass = SImmAsmOperand<32>;
+}
+
+def u32imm_li : Operand<i32>, ImmLeaf<i32, [{return isUInt<32>(Imm);}]> {
+  let ParserMatchClass = UImmAsmOperand<32>;
+}
+
+
+
 // Procedure return
 def dlx_ret : SDNode<"DLXISD::Ret", SDTNone,
                        [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
@@ -192,6 +202,11 @@ class ALU_ri<DLXOpcode opcode, string opcodestr>
     : DLXInstI<opcode, (outs GPR:$rd), (ins GPR:$rs1, simm16:$imm16), opcodestr, "$rd, $rs1, $imm16">,
       Sched<[WriteIALU, ReadIALU]>;
 
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+class ALU_i<DLXOpcode opcode, string opcodestr>
+    : DLXInstI<opcode, (outs GPR:$rd), (ins simm16:$imm16), opcodestr, "$rd, $imm16">,
+      Sched<[WriteIALU, ReadIALU]>;
+
 
 // Arithmetics
 // -----------
@@ -202,7 +217,6 @@ def SUBUI : ALU_ri<OPC_SUBUI,"subui">;
 def ANDI  : ALU_ri<OPC_ANDI, "andi">;
 def ORI   : ALU_ri<OPC_ORI,  "ori">;
 def XORI  : ALU_ri<OPC_XORI, "xori">;
-def LHI   : ALU_ri<OPC_LHI,  "lhi">;
 def SLLI  : ALU_ri<OPC_SLLI, "slli">;
 def NOP   : ALU_ri<OPC_NOP,  "nop">;
 def SRLI  : ALU_ri<OPC_SRLI, "srli">;
@@ -217,6 +231,8 @@ def SLTUI : ALU_ri<OPC_SLTUI,"sltui">;
 def SGTUI : ALU_ri<OPC_SGTUI,"sgtui">;
 def SLEUI : ALU_ri<OPC_SLEUI,"sleui">;
 def SGEUI : ALU_ri<OPC_SGEUI,"sgeui">;
+
+def LHI   : ALU_i<OPC_LHI,  "lhi">;
 
 /* Patterns I-Type Arithmetics */
 // Available pattern operators are found in TargetSelectionDAG.td
@@ -245,6 +261,9 @@ def : PatGprUimm16<setult,SLTUI>;
 def : PatGprUimm16<setugt,SGTUI>;
 def : PatGprUimm16<setule,SLEUI>;
 def : PatGprUimm16<setuge,SGEUI>;
+
+// Load a constant into a register
+def : Pat<(i32 i32imm_li:$imm16), (ADDI (LHI uimm16:$imm16), uimm16:$imm16)>;
 
 // Load and store
 // --------------
@@ -305,6 +324,23 @@ def BNEZ : BranchCC_ri<OPC_BNEZ, "bnez">;
 def : Pat<(brcond (i32 (seteq GPR:$rs1, 0)), bb:$imm16), (BEQZ GPR:$rs1, brtarget:$imm16)>;
 def : Pat<(brcond (i32 (setne GPR:$rs1, 0)), bb:$imm16), (BNEZ GPR:$rs1, brtarget:$imm16)>;
 
+class BRccPat<PatFrag CondCode, DLXInstR Inst>
+    : Pat<(brcond (CondCode GPR:$rs1, GPR:$rs2), bb:$imm16),
+            (BNEZ (Inst GPR:$rs1, GPR:$rs2), brtarget:$imm16)>;
+  
+def : BRccPat<setlt, SLT>;
+def : BRccPat<setgt, SGT>;
+def : BRccPat<setle, SLE>;
+def : BRccPat<setge, SGE>;
+def : BRccPat<setult,SLTU>;
+def : BRccPat<setugt,SGTU>;
+def : BRccPat<setule,SLEU>;
+def : BRccPat<setuge,SGEU>;
+
+// An extra pattern is needed for a brcond without a setcc (i.e. where the
+// condition was calculated elsewhere).
+def : Pat<(brcond GPR:$cond, bb:$imm16), (BNEZ GPR:$cond, brtarget:$imm16)>;
+
 /* 
        _     _______               
       | |   |__   __|              
@@ -339,3 +375,6 @@ def J    : DLXInstJ<OPC_J, (outs), (ins jmptarget:$imm26), "j", "$imm26">,
 def JAL  : DLXInstJ<OPC_JAL, (outs GPR:$r31), (ins GPR:$rs1), "jal", "$rs1">, 
     Sched<[ReadJalr]>;
 
+let isBarrier = 1, isBranch = 1, isTerminator = 1 in
+def PseudoBR : Pseudo<(outs), (ins jmptarget:$imm26), [(br bb:$imm26)]>,
+               PseudoInstExpansion<(J jmptarget:$imm26)>;

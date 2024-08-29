@@ -90,6 +90,7 @@ private:
                            SDValue Arg, const SDLoc &dl,
                            SelectionDAG &DAG, const CCValAssign &VA,
                            ISD::ArgFlagsTy Flags) const;
+  SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
 };
 }
 

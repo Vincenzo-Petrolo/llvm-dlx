@@ -51,7 +51,7 @@ public:
 
 private:
   void LowerInstruction(const MachineInstr *MI, MCInst &OutMI) const;
-  MCOperand LowerOperand(const MachineOperand& MO) const;
+  bool lowerOperand(const MachineOperand& MO, MCOperand &MCOp) const;
   MCOperand LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const;
 };
 }
@@ -78,47 +78,57 @@ void DLXAsmPrinter::LowerInstruction(const MachineInstr *MI,
   OutMI.setOpcode(MI->getOpcode());
 
   for (const MachineOperand &MO : MI->operands()) {
-    MCOperand MCOp = LowerOperand(MO);
+    MCOperand MCOp;
+    lowerOperand(MO, MCOp);
     if (MCOp.isValid())
       OutMI.addOperand(MCOp);
   }
 }
 
-MCOperand DLXAsmPrinter::LowerOperand(const MachineOperand& MO) const {
+bool DLXAsmPrinter::lowerOperand(const MachineOperand& MO, MCOperand &MCOp) const {
   switch (MO.getType()) {
-  case MachineOperand::MO_Register:
-    // Ignore all implicit register operands.
-    if (MO.isImplicit()) {
+    case MachineOperand::MO_Register:
+      // Ignore all implicit register operands.
+      if (MO.isImplicit()) {
+        return false;
+        break;
+      }
+      MCOp = MCOperand::createReg(MO.getReg());
       break;
-    }
-    return MCOperand::createReg(MO.getReg());
 
-  case MachineOperand::MO_Immediate:
-    return MCOperand::createImm(MO.getImm());
+    case MachineOperand::MO_Immediate:
+      MCOp = MCOperand::createImm(MO.getImm());
+      break;
 
-  case MachineOperand::MO_MachineBasicBlock:
-    return LowerSymbolOperand(MO, MO.getMBB()->getSymbol());
+    case MachineOperand::MO_MachineBasicBlock:
+      MCOp = LowerSymbolOperand(MO, MO.getMBB()->getSymbol());
+      break;
 
-  case MachineOperand::MO_GlobalAddress:
-    return LowerSymbolOperand(MO, getSymbol(MO.getGlobal()));
+    case MachineOperand::MO_GlobalAddress:
+      MCOp = LowerSymbolOperand(MO, getSymbol(MO.getGlobal()));
+      break;
 
-  case MachineOperand::MO_BlockAddress:
-    return LowerSymbolOperand(MO, GetBlockAddressSymbol(MO.getBlockAddress()));
+    case MachineOperand::MO_BlockAddress:
+      MCOp = LowerSymbolOperand(MO, GetBlockAddressSymbol(MO.getBlockAddress()));
+      break;
 
-  case MachineOperand::MO_ExternalSymbol:
-    return LowerSymbolOperand(MO, GetExternalSymbolSymbol(MO.getSymbolName()));
+    case MachineOperand::MO_ExternalSymbol:
+      MCOp = LowerSymbolOperand(MO, GetExternalSymbolSymbol(MO.getSymbolName()));
+      break;
 
-  case MachineOperand::MO_ConstantPoolIndex:
-    return LowerSymbolOperand(MO, GetCPISymbol(MO.getIndex()));
+    case MachineOperand::MO_ConstantPoolIndex:
+      MCOp = LowerSymbolOperand(MO, GetCPISymbol(MO.getIndex()));
+      break;
 
-  case MachineOperand::MO_RegisterMask:
-    break;
+    case MachineOperand::MO_RegisterMask:
+      return false;
+      break;
 
-  default:
-    report_fatal_error("unknown operand type");
- }
+    default:
+      report_fatal_error("unknown operand type");
+  }
 
-  return MCOperand();
+  return true;
 }
 
 MCOperand DLXAsmPrinter::LowerSymbolOperand(const MachineOperand &MO,
