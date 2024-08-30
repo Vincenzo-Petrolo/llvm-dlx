@@ -93,6 +93,18 @@ def u32imm_li : Operand<i32>, ImmLeaf<i32, [{return isUInt<32>(Imm);}]> {
   let ParserMatchClass = UImmAsmOperand<32>;
 }
 
+// A bare symbol used in call/tail only.
+def CallSymbol : AsmOperandClass {
+  let Name = "CallSymbol";
+  let RenderMethod = "addImmOperands";
+  let DiagnosticType = "InvalidCallSymbol";
+  let ParserMethod = "parseCallSymbol";
+}
+def call_symbol : Operand<i32> {
+  let ParserMatchClass = CallSymbol;
+}
+
+def SDT_RISCVCall     : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
 
 
 // Procedure return
@@ -251,6 +263,8 @@ def : PatGprSimm16<xor, XORI>;
 def : PatGprSimm16<shl, SLLI>;
 def : PatGprSimm16<srl, SRLI>;
 def : PatGprSimm16<sra, SRAI>;
+
+// SETCC Patterns
 def : PatGprSimm16<seteq, SEQI>;
 def : PatGprSimm16<setne, SNEI>;
 def : PatGprSimm16<setlt, SLTI>;
@@ -372,9 +386,19 @@ def : InstAlias<"ret",                   (JR      R31), 4>;
 /* J-Type definitions */
 def J    : DLXInstJ<OPC_J, (outs), (ins jmptarget:$imm26), "j", "$imm26">, 
     Sched<[]>;
-def JAL  : DLXInstJ<OPC_JAL, (outs GPR:$r31), (ins GPR:$rs1), "jal", "$rs1">, 
+def JAL  : DLXInstJ<OPC_JAL, (outs), (ins call_symbol:$imm26), "jal", "$imm26">, 
     Sched<[ReadJalr]>;
 
 let isBarrier = 1, isBranch = 1, isTerminator = 1 in
 def PseudoBR : Pseudo<(outs), (ins jmptarget:$imm26), [(br bb:$imm26)]>,
                PseudoInstExpansion<(J jmptarget:$imm26)>;
+
+def dlx_call      : SDNode<"DLXISD::Call", SDT_RISCVCall,
+                             [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+
+let isCall = 1, Defs = [R31], isCodeGenOnly = 0 in
+def PseudoCALL : Pseudo<(outs), (ins call_symbol:$imm26), []>,
+                 PseudoInstExpansion<(JAL call_symbol:$imm26)>;
+
+def : Pat<(dlx_call tglobaladdr:$imm26), (PseudoCALL tglobaladdr:$imm26)>;
+def : Pat<(dlx_call texternalsym:$imm26), (PseudoCALL texternalsym:$imm26)>;

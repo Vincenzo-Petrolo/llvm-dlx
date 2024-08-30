@@ -50,6 +50,8 @@ public:
   Register getFrameRegister(const MachineFunction &MF) const override;
 
   const TargetRegisterClass *intRegClass(unsigned Size) const;
+
+  Register getRARegister() const;
 };
 
 } // end namespace llvm

@@ -26,6 +26,9 @@ enum NodeType {
   // Start the numbering from where ISD NodeType finishes.
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
 
+  // Call
+  Call,
+
   // Return
   Ret,
 };
@@ -53,7 +56,6 @@ private:
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
 
   using RegsToPassVector = SmallVector<std::pair<unsigned, SDValue>, 8>;
 
@@ -93,6 +95,9 @@ private:
   SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerSELECT(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerSETCC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
+
 };
 }
 

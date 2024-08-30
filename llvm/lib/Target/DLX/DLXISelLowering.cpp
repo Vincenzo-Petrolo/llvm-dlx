@@ -67,7 +67,6 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BlockAddress,  MVT::i32, Custom);
   setOperationAction(ISD::ConstantPool,  MVT::i32, Custom);
   setOperationAction(ISD::SELECT,        MVT::i32, Custom);
-  setOperationAction(ISD::SETCC,         MVT::i32, Custom);
 
   // Expand to implement using more basic operations
   // TODO, add other operations that are missing from DLX ISA
@@ -361,9 +360,62 @@ DLXTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
   return Chain;
 }
 
-SDValue DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
-                                       SmallVectorImpl<SDValue> &InVals) const {
-  llvm_unreachable("Cannot lower call");
+SDValue 
+DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
+                                     SmallVectorImpl<SDValue> &InVals) const {
+  SelectionDAG &DAG = CLI.DAG;
+  SDLoc &dl = CLI.DL;
+  SDValue Chain = CLI.Chain;
+  SDValue Callee = CLI.Callee;
+  CallingConv::ID CallConv = CLI.CallConv;
+  bool IsVarArg = CLI.IsVarArg;
+  
+  // Analyze the operands of the call, assigning locations to each operand
+  SmallVector<CCValAssign, 16> ArgLocs;
+  CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), ArgLocs, *DAG.getContext());
+
+  // Assuming DLX has a custom calling convention, DLXCC
+  CCInfo.AnalyzeCallOperands(CLI.Outs, DLX_CCallingConv);
+
+  // Prepare the call sequence
+  SmallVector<SDValue, 8> Ops;
+  Ops.push_back(Chain);
+  Ops.push_back(Callee);
+
+  // Assign locations to arguments and pass them
+  for (unsigned i = 0; i != CLI.Outs.size(); ++i) {
+    SDValue Arg = CLI.OutVals[i];
+    CCValAssign &VA = ArgLocs[i];
+    
+    if (VA.isRegLoc()) {
+      Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Arg, SDValue());
+      Ops.push_back(DAG.getRegister(VA.getLocReg(), Arg.getValueType()));
+    } else {
+      // Memory location
+      SDValue PtrOff = DAG.getIntPtrConstant(VA.getLocMemOffset(), dl);
+      SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, DLX::R2, PtrOff.getValueType());
+      SDValue Addr = DAG.getNode(ISD::ADD, dl, PtrOff.getValueType(), StackPtr, PtrOff);
+      Chain = DAG.getStore(Chain, dl, Arg, Addr, MachinePointerInfo());
+    }
+  }
+
+  // Create the actual call node
+  SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
+  Chain = DAG.getNode(DLXISD::Call, dl, NodeTys, Ops);
+
+  // Handle return values
+  if (!CLI.Ins.empty()) {
+    SmallVector<CCValAssign, 16> RVLocs;
+    CCState RVInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs, *DAG.getContext());
+    RVInfo.AnalyzeCallResult(CLI.Ins, DLX_CRetConv);
+
+    for (unsigned i = 0; i != RVLocs.size(); ++i) {
+      SDValue RV = DAG.getCopyFromReg(Chain, dl, RVLocs[i].getLocReg(), RVLocs[i].getValVT());
+      InVals.push_back(RV);
+    }
+  }
+
+  return Chain;
 }
 
 /// HandleByVal - Every parameter *after* a byval parameter is passed
@@ -510,11 +562,6 @@ LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const {
   llvm_unreachable("Unsupported block address");
 }
 
-SDValue
-DLXTargetLowering::LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const {
-  return SDValue();
-}
-
 SDValue 
 DLXTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   SDValue CondV = Op.getOperand(0);
@@ -543,53 +590,56 @@ DLXTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
 }
 
 SDValue 
-DLXTargetLowering::lowerSETCC(SDValue Op, SelectionDAG &DAG) const {
-  // Lower the SETCC node
-  SDValue CondV = Op.getOperand(0);
-  SDValue TrueV = Op.getOperand(1);
-  SDLoc DL(Op);
+DLXTargetLowering::lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
+  // This nodes represent llvm.frameaddress on the DAG.
+  // It takes one operand, the index of the frame address to return.
+  // An index of zero corresponds to the current function's frame address.
+  // An index of one to the parent's frame address, and so on.
+  // Depths > 0 not supported yet!
 
-  CondCodeSDNode *CC = cast<CondCodeSDNode>(Op.getOperand(2));
+  if (Op.getConstantOperandVal(0) > 0)
+    return SDValue();
 
-  switch (CC->get()) {
-    case ISD::SETNE:
-      return DAG.getNode(ISD::SETNE, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETEQ:
-      return DAG.getNode(ISD::SETEQ, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETLT:
-      return DAG.getNode(ISD::SETLT, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETGT:
-      return DAG.getNode(ISD::SETGT, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETLE:
-      return DAG.getNode(ISD::SETLE, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETGE:
-      return DAG.getNode(ISD::SETGE, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETULT:
-      return DAG.getNode(ISD::SETULT, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETUGT:
-      return DAG.getNode(ISD::SETUGT, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETULE:
-      return DAG.getNode(ISD::SETULE, DL, MVT::i32, CondV, TrueV);
-    case ISD::SETUGE:
-      return DAG.getNode(ISD::SETUGE, DL, MVT::i32, CondV, TrueV);
-    default:
-      llvm_unreachable("Invalid condition code");
-  }
-
+  MachineFunction &MF = DAG.getMachineFunction();
+  const TargetRegisterInfo *RegInfo = Subtarget.getRegisterInfo();
+  return DAG.getCopyFromReg(DAG.getEntryNode(), SDLoc(Op),
+                            RegInfo->getFrameRegister(MF), MVT::i32);
 }
 
+SDValue 
+DLXTargetLowering::lowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const {
+  const DLXRegisterInfo &RI = *Subtarget.getRegisterInfo();
+  MachineFunction &MF = DAG.getMachineFunction();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MFI.setReturnAddressIsTaken(true);
+  MVT XLenVT = MVT::i32;
+  int XLenInBytes = 32 / 8;
+
+  if (verifyReturnAddressArgumentIsConstant(Op, DAG))
+    return SDValue();
+
+  EVT VT = Op.getValueType();
+  SDLoc DL(Op);
+  unsigned Depth = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
+
+  if (Depth > 0) // Depth > 0 not supported yet!
+    return SDValue();
+
+  // Return the value of the return address register
+  Register Reg = RI.getRARegister();
+  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, Reg, XLenVT);
+}
 
 
 SDValue
 DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
-  // case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
   case ISD::GlobalAddress:        return LowerGlobalAddress(Op, DAG);
   case ISD::BlockAddress:         return LowerBlockAddress(Op, DAG);
   case ISD::ConstantPool:         return LowerConstantPool(Op, DAG);
-  case ISD::RETURNADDR:           return LowerRETURNADDR(Op, DAG);
+  case ISD::RETURNADDR:           return lowerRETURNADDR(Op, DAG);
   case ISD::SELECT:               return lowerSELECT(Op, DAG);
-  case ISD::SETCC:                return lowerSETCC(Op, DAG);
+  case ISD::FRAMEADDR:            return lowerFRAMEADDR(Op, DAG);
   default: llvm_unreachable("unimplemented operand");
   }
 }

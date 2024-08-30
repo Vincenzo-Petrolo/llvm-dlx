@@ -109,3 +109,4 @@ Register DLXRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return TFI->hasFP(MF) ? DLX::R8 : DLX::R2;
 }
 
+Register DLXRegisterInfo::getRARegister() const { return DLX::R31; }
