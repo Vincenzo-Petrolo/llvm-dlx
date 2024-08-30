@@ -33,6 +33,9 @@ using namespace llvm;
 
 #include "DLXGenCallingConv.inc"
 
+#define EXPAND(Op) setOperationAction(ISD::Op, MVT::i32, Expand)
+
+
 DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
                                          const DLXSubtarget &STI)
     : TargetLowering(TM), Subtarget(STI)
@@ -63,21 +66,65 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
   setOperationAction(ISD::BlockAddress,  MVT::i32, Custom);
   setOperationAction(ISD::ConstantPool,  MVT::i32, Custom);
+  setOperationAction(ISD::SELECT,        MVT::i32, Custom);
+  setOperationAction(ISD::SETCC,         MVT::i32, Custom);
 
   // Expand to implement using more basic operations
   // TODO, add other operations that are missing from DLX ISA
-  setOperationAction(ISD::ROTL,          MVT::i32, Expand);
-  setOperationAction(ISD::ROTR,          MVT::i32, Expand);
-  setOperationAction(ISD::BR_CC,         MVT::i32, Expand);
+  EXPAND(ROTL);
+  EXPAND(ROTR);
+  EXPAND(BR_CC);
 
   // TODO add check on M-extension support, for now just expand
-  setOperationAction(ISD::MUL, MVT::i32, Expand);
-  setOperationAction(ISD::MULHS, MVT::i32, Expand);
-  setOperationAction(ISD::MULHU, MVT::i32, Expand);
-  setOperationAction(ISD::SDIV, MVT::i32 , Expand);
-  setOperationAction(ISD::UDIV, MVT::i32 , Expand);
-  setOperationAction(ISD::SREM, MVT::i32 , Expand);
-  setOperationAction(ISD::UREM, MVT::i32 , Expand);
+  EXPAND(MUL);
+  EXPAND(MULHS);
+  EXPAND(MULHU);
+  EXPAND(SDIV);
+  EXPAND(UDIV);
+  EXPAND(SREM);
+  EXPAND(UREM);
+  EXPAND(SMUL_LOHI);
+  EXPAND(UMUL_LOHI);
+  EXPAND(SDIVREM);
+  EXPAND(UDIVREM);
+  EXPAND(ADDC);
+  EXPAND(SUBC);
+  EXPAND(ADDE);
+  EXPAND(SUBE);
+  EXPAND(UADDO);
+  EXPAND(USUBO);
+  EXPAND(SADDO);
+  EXPAND(SSUBO);
+  EXPAND(UMULO);
+  EXPAND(SMULO);
+  EXPAND(SADDSAT);
+  EXPAND(UADDSAT);
+  EXPAND(SSUBSAT);
+  EXPAND(USUBSAT);
+  EXPAND(SMULFIX);
+  EXPAND(UMULFIX);
+  EXPAND(SMULFIXSAT);
+  EXPAND(UMULFIXSAT);
+  EXPAND(SDIVFIX);
+  EXPAND(UDIVFIX);
+  EXPAND(SMIN);
+  EXPAND(SMAX);
+  EXPAND(UMIN);
+  EXPAND(UMAX);
+  EXPAND(ABS);
+  EXPAND(CTLZ);
+  EXPAND(CTTZ);
+  EXPAND(CTPOP);
+  EXPAND(BITREVERSE);
+  EXPAND(SELECT_CC);
+  EXPAND(SETCCCARRY);
+  EXPAND(SHL_PARTS);
+  EXPAND(SRA_PARTS);
+  EXPAND(SRL_PARTS);
+  EXPAND(SIGN_EXTEND);
+  EXPAND(ZERO_EXTEND);
+  EXPAND(ANY_EXTEND);
+  EXPAND(TRUNCATE);
 
   // Set minimum and preferred function alignment (log2)
   setMinFunctionAlignment(Align(1));
@@ -468,6 +515,71 @@ DLXTargetLowering::LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const {
   return SDValue();
 }
 
+SDValue 
+DLXTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
+  SDValue CondV = Op.getOperand(0);
+  SDValue TrueV = Op.getOperand(1);
+  SDValue FalseV = Op.getOperand(2);
+  SDLoc DL(Op);
+
+  // Assuming CondV is an i1 (1-bit integer), extend it to match the bit-width of TrueV/FalseV.
+  EVT ValueType = TrueV.getValueType();
+  SDValue CondVExtended = DAG.getNode(ISD::SIGN_EXTEND, DL, ValueType, CondV);
+
+  // Calculate the true mask: ~0 if CondV is true, 0 if CondV is false.
+  SDValue TrueMask = CondVExtended;
+
+  // Calculate the false mask: ~TrueMask
+  SDValue FalseMask = DAG.getNode(ISD::XOR, DL, ValueType, TrueMask, DAG.getConstant(-1, DL, ValueType));
+
+  // Now perform the bitwise operations to select the correct value.
+  SDValue TruePart = DAG.getNode(ISD::AND, DL, ValueType, TrueV, TrueMask);
+  SDValue FalsePart = DAG.getNode(ISD::AND, DL, ValueType, FalseV, FalseMask);
+
+  // Combine the true and false parts.
+  SDValue Result = DAG.getNode(ISD::OR, DL, ValueType, TruePart, FalsePart);
+
+  return Result;
+}
+
+SDValue 
+DLXTargetLowering::lowerSETCC(SDValue Op, SelectionDAG &DAG) const {
+  // Lower the SETCC node
+  SDValue CondV = Op.getOperand(0);
+  SDValue TrueV = Op.getOperand(1);
+  SDLoc DL(Op);
+
+  CondCodeSDNode *CC = cast<CondCodeSDNode>(Op.getOperand(2));
+
+  switch (CC->get()) {
+    case ISD::SETNE:
+      return DAG.getNode(ISD::SETNE, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETEQ:
+      return DAG.getNode(ISD::SETEQ, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETLT:
+      return DAG.getNode(ISD::SETLT, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETGT:
+      return DAG.getNode(ISD::SETGT, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETLE:
+      return DAG.getNode(ISD::SETLE, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETGE:
+      return DAG.getNode(ISD::SETGE, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETULT:
+      return DAG.getNode(ISD::SETULT, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETUGT:
+      return DAG.getNode(ISD::SETUGT, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETULE:
+      return DAG.getNode(ISD::SETULE, DL, MVT::i32, CondV, TrueV);
+    case ISD::SETUGE:
+      return DAG.getNode(ISD::SETUGE, DL, MVT::i32, CondV, TrueV);
+    default:
+      llvm_unreachable("Invalid condition code");
+  }
+
+}
+
+
+
 SDValue
 DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
@@ -476,6 +588,8 @@ DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::BlockAddress:         return LowerBlockAddress(Op, DAG);
   case ISD::ConstantPool:         return LowerConstantPool(Op, DAG);
   case ISD::RETURNADDR:           return LowerRETURNADDR(Op, DAG);
+  case ISD::SELECT:               return lowerSELECT(Op, DAG);
+  case ISD::SETCC:                return lowerSETCC(Op, DAG);
   default: llvm_unreachable("unimplemented operand");
   }
 }

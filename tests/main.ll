@@ -14,8 +14,23 @@ entry:
 define dso_local i32 @acc(i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp6 = icmp sgt i32 %n, 0
-  %spec.select = select i1 %cmp6, i32 %n, i32 0
-  ret i32 %spec.select
+  br i1 %cmp6, label %for.body.preheader, label %for.cond.cleanup
+
+for.body.preheader:                               ; preds = %entry
+  %0 = add nsw i32 %n, -1
+  %1 = zext i32 %0 to i33
+  %2 = add nsw i32 %n, -2
+  %3 = zext i32 %2 to i33
+  %4 = mul i33 %1, %3
+  %5 = lshr i33 %4, 1
+  %6 = trunc i33 %5 to i32
+  %7 = add i32 %6, %n
+  %8 = add i32 %7, -1
+  br label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.body.preheader, %entry
+  %tmp.0.lcssa = phi i32 [ 0, %entry ], [ %8, %for.body.preheader ]
+  ret i32 %tmp.0.lcssa
 }
 
 attributes #0 = { norecurse nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
@@ -24,4 +39,4 @@ attributes #0 = { norecurse nounwind readnone "correctly-rounded-divide-sqrt-fp-
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 10.0.1 (git@github.com:Vincenzo-Petrolo/llvm-project.git 034a36898e8193d42f157b427d118d8f3542d663)"}
+!1 = !{!"clang version 10.0.1 (git@github.com:Vincenzo-Petrolo/llvm-project.git 1e38d18d0d85d44d7a249d09d42d6ddee5a1bd7d)"}

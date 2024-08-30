@@ -10,7 +10,7 @@ int acc(int n)
 
 	for (int i = 0; i < n; i++)
 	{
-		tmp ++;
+		tmp+=i;
 	}
 
 	return tmp;
