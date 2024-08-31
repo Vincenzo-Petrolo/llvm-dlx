@@ -254,25 +254,26 @@ macro(load_llvm_config)
     endif()
 
     set(COMPILER_RT_HAS_LLVMTESTINGSUPPORT FALSE)
-    execute_process(
-      COMMAND ${LLVM_CONFIG_PATH} "--ldflags" "--libs" "testingsupport"
-      RESULT_VARIABLE HAD_ERROR
-      OUTPUT_VARIABLE CONFIG_OUTPUT
-      ERROR_QUIET)
-    if (HAD_ERROR)
-      message(WARNING "llvm-config finding testingsupport failed with status ${HAD_ERROR}")
-    else()
-      string(REGEX REPLACE "[ \t]*[\r\n]+[ \t]*" ";" CONFIG_OUTPUT ${CONFIG_OUTPUT})
-      list(GET CONFIG_OUTPUT 0 LDFLAGS)
-      list(GET CONFIG_OUTPUT 1 LIBLIST)
-      if (LIBLIST STREQUAL "")
-        message(WARNING "testingsupport library not installed, some tests will be skipped")
-      else()
-        set(LLVM_TESTINGSUPPORT_LDFLAGS ${LDFLAGS} CACHE STRING "Linker flags for LLVMTestingSupport library")
-        set(LLVM_TESTINGSUPPORT_LIBLIST ${LIBLIST} CACHE STRING "Library list for LLVMTestingSupport")
-        set(COMPILER_RT_HAS_LLVMTESTINGSUPPORT TRUE)
-      endif()
-    endif()
+    # Should I enable this?
+    # execute_process(
+    #   COMMAND ${LLVM_CONFIG_PATH} "--ldflags" "--libs" "testingsupport"
+    #   RESULT_VARIABLE HAD_ERROR
+    #   OUTPUT_VARIABLE CONFIG_OUTPUT
+    #   ERROR_QUIET)
+    # if (HAD_ERROR)
+    #   message(WARNING "llvm-config finding testingsupport failed with status ${HAD_ERROR}")
+    # else()
+    #   string(REGEX REPLACE "[ \t]*[\r\n]+[ \t]*" ";" CONFIG_OUTPUT ${CONFIG_OUTPUT})
+    #   list(GET CONFIG_OUTPUT 0 LDFLAGS)
+    #   list(GET CONFIG_OUTPUT 1 LIBLIST)
+    #   if (LIBLIST STREQUAL "")
+    #     message(WARNING "testingsupport library not installed, some tests will be skipped")
+    #   else()
+    #     set(LLVM_TESTINGSUPPORT_LDFLAGS ${LDFLAGS} CACHE STRING "Linker flags for LLVMTestingSupport library")
+    #     set(LLVM_TESTINGSUPPORT_LIBLIST ${LIBLIST} CACHE STRING "Library list for LLVMTestingSupport")
+    #     set(COMPILER_RT_HAS_LLVMTESTINGSUPPORT TRUE)
+    #   endif()
+    # endif()
 
     # Make use of LLVM CMake modules.
     # --cmakedir is supported since llvm r291218 (4.0 release)
