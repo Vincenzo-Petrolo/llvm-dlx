@@ -97,6 +97,7 @@ private:
   SDValue lowerSETCC(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const;
 
 };
 }

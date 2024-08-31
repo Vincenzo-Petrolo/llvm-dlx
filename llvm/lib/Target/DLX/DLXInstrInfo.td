@@ -93,6 +93,8 @@ def u32imm_li : Operand<i32>, ImmLeaf<i32, [{return isUInt<32>(Imm);}]> {
   let ParserMatchClass = UImmAsmOperand<32>;
 }
 
+def AddrFI : ComplexPattern<iPTR, 1, "SelectAddrFI", [frameindex], []>;
+
 // A bare symbol used in call/tail only.
 def CallSymbol : AsmOperandClass {
   let Name = "CallSymbol";
@@ -299,27 +301,37 @@ def SB  : Store_rri<OPC_SB,  "sb">, Sched<[WriteSTB, ReadStoreData, ReadMemBase]
 def SH  : Store_rri<OPC_SH,  "sh">, Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;
 def SW  : Store_rri<OPC_SW,  "sw">, Sched<[WriteSTW, ReadStoreData, ReadMemBase]>;
 
-class LdPat<PatFrag LoadOp, DLXInstI Inst>
-    : Pat<(LoadOp (add GPR:$rs1, simm16:$imm16)),
+multiclass LdPat<PatFrag LoadOp, DLXInstI Inst> {
+  def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
+  def : Pat<(LoadOp AddrFI:$rs1), (Inst AddrFI:$rs1, 0)>;
+  def : Pat<(LoadOp (add GPR:$rs1, simm16:$imm16)),
             (Inst GPR:$rs1, simm16:$imm16)>;
+  def : Pat<(LoadOp (add AddrFI:$rs1, simm16:$imm16)),
+            (Inst AddrFI:$rs1, simm16:$imm16)>;
+}
 
-class ULdPat<PatFrag LoadOp, DLXInstI Inst>
-    : Pat<(LoadOp (add GPR:$rs1, simm16:$imm16)),
-            (Inst GPR:$rs1, simm16:$imm16)>;
+defm : LdPat<sextloadi8, LB>;
+defm : LdPat<extloadi8, LB>;
+defm : LdPat<sextloadi16, LH>;
+defm : LdPat<extloadi16, LH>;
+defm : LdPat<load, LW>;
+defm : LdPat<zextloadi8, LBU>;
+defm : LdPat<zextloadi16, LHU>;
 
-def : LdPat<sextloadi8, LB>;
-def : LdPat<sextloadi16, LH>;
-def : LdPat<load, LW>;
-def : ULdPat<zextloadi8, LBU>;
-def : ULdPat<zextloadi16, LHU>;
+/// Stores
 
-class StPat<PatFrag StoreOp, DLXInstI Inst>
-    : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm16:$imm16)),
+multiclass StPat<PatFrag StoreOp, DLXInstI Inst> {
+  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), (Inst GPR:$rs2, GPR:$rs1, 0)>;
+  def : Pat<(StoreOp GPR:$rs2, AddrFI:$rs1), (Inst GPR:$rs2, AddrFI:$rs1, 0)>;
+  def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm16:$imm16)),
             (Inst GPR:$rs2, GPR:$rs1, simm16:$imm16)>;
+  def : Pat<(StoreOp GPR:$rs2, (add AddrFI:$rs1, simm16:$imm16)),
+            (Inst GPR:$rs2, AddrFI:$rs1, simm16:$imm16)>;
+}
 
-def : StPat<truncstorei8, SB>;
-def : StPat<truncstorei16, SH>;
-def : StPat<store, SW>;
+defm : StPat<truncstorei8, SB>;
+defm : StPat<truncstorei16, SH>;
+defm : StPat<store, SW>;
 
 // Branches
 // --------

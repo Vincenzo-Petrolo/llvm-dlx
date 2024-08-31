@@ -67,6 +67,7 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BlockAddress,  MVT::i32, Custom);
   setOperationAction(ISD::ConstantPool,  MVT::i32, Custom);
   setOperationAction(ISD::SELECT,        MVT::i32, Custom);
+  setOperationAction(ISD::FrameIndex,    MVT::i32, Custom);
 
   // Expand to implement using more basic operations
   // TODO, add other operations that are missing from DLX ISA
@@ -630,6 +631,19 @@ DLXTargetLowering::lowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const {
   return DAG.getCopyFromReg(DAG.getEntryNode(), DL, Reg, XLenVT);
 }
 
+SDValue 
+DLXTargetLowering::LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const {
+  FrameIndexSDNode *FINode = cast<FrameIndexSDNode>(Op);
+  int FrameIndex = FINode->getIndex();
+
+  SDValue SPReg = DAG.getRegister(DLX::R2, MVT::i32); // r2 is the SP
+
+  // Compute the effective address using r2 (SP) and the frame index offset
+  SDValue TFI = DAG.getTargetFrameIndex(FrameIndex, MVT::i32);
+  SDValue Addr = DAG.getNode(ISD::ADD, SDLoc(Op), MVT::i32, SPReg, TFI);
+
+  return Addr;
+}
 
 SDValue
 DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
@@ -640,6 +654,7 @@ DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::RETURNADDR:           return lowerRETURNADDR(Op, DAG);
   case ISD::SELECT:               return lowerSELECT(Op, DAG);
   case ISD::FRAMEADDR:            return lowerFRAMEADDR(Op, DAG);
+  case ISD::FrameIndex:           return LowerFrameIndex(Op, DAG);
   default: llvm_unreachable("unimplemented operand");
   }
 }

@@ -47,4 +47,5 @@ void DLXTargetInfo::getTargetDefines(const LangOptions &Opts,
                                        MacroBuilder &Builder) const {
   // Define the __DLX__ macro when building for this target
   Builder.defineMacro("__DLX__");
+  Builder.defineMacro("__ELF__");
 }

@@ -32,6 +32,7 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   void Select(SDNode *Node) override;
+  bool SelectAddrFI(SDValue Addr, SDValue &Base);
 
 #include "DLXGenDAGISel.inc"
 

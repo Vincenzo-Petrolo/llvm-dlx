@@ -44,3 +44,11 @@ void DLXDAGToDAGISel::Select(SDNode *Node) {
   // Select the default instruction
   SelectCode(Node);
 }
+
+bool DLXDAGToDAGISel::SelectAddrFI(SDValue Addr, SDValue &Base) {
+  if (auto FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
+    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);
+    return true;
+  }
+  return false;
+}
