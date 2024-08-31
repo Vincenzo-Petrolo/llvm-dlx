@@ -162,15 +162,12 @@ static const MCPhysReg GPRArgRegs[] = {
 /// LowerFormalArguments - transform physical registers into virtual registers
 /// and generate load operations for arguments places on the stack.
 SDValue DLXTargetLowering::LowerFormalArguments(
-                                    SDValue Chain,
-                                    CallingConv::ID CallConv,
-                                    bool isVarArg,
-                                    const SmallVectorImpl<ISD::InputArg> &Ins,
-                                    const SDLoc &dl, SelectionDAG &DAG,
-                                    SmallVectorImpl<SDValue> &InVals) const
-{
+    SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
+    const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &dl, SelectionDAG &DAG,
+    SmallVectorImpl<SDValue> &InVals) const {
+
   assert((CallingConv::C == CallConv || CallingConv::Fast == CallConv) &&
-		 "Unsupported CallingConv to FORMAL_ARGS");
+         "Unsupported CallingConv in FORMAL_ARGUMENTS Lowering");
 
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo &MFI = MF.getFrameInfo();
@@ -181,110 +178,49 @@ SDValue DLXTargetLowering::LowerFormalArguments(
                  *DAG.getContext());
   CCInfo.AnalyzeFormalArguments(Ins, DLX_CCallingConv);
 
-  SmallVector<SDValue, 16> ArgValues;
-  SDValue ArgValue;
-  Function::const_arg_iterator CurOrigArg = MF.getFunction().arg_begin();
-  unsigned CurArgIdx = 0;
-
-  // Calculate the amount of stack space that we need to allocate to store
-  // byval and variadic arguments that are passed in registers.
-  // We need to know this before we allocate the first byval or variadic
-  // argument, as they will be allocated a stack slot below the CFA (Canonical
-  // Frame Address, the stack pointer at entry to the function).
-  unsigned ArgRegBegin = DLX::R4;
-  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
-    if (CCInfo.getInRegsParamsProcessed() >= CCInfo.getInRegsParamsCount())
-      break;
-
-    CCValAssign &VA = ArgLocs[i];
-    unsigned Index = VA.getValNo();
-    ISD::ArgFlagsTy Flags = Ins[Index].Flags;
-    if (!Flags.isByVal())
-      continue;
-
-    assert(VA.isMemLoc() && "unexpected byval pointer in reg");
-    unsigned RBegin, REnd;
-    CCInfo.getInRegsParamInfo(CCInfo.getInRegsParamsProcessed(), RBegin, REnd);
-    ArgRegBegin = std::min(ArgRegBegin, RBegin);
-
-    CCInfo.nextInRegsParam();
-  }
-  CCInfo.rewindByValRegsInfo();
-
-  int lastInsIndex = -1;
-  if (isVarArg && MFI.hasVAStart()) {
-    unsigned RegIdx = CCInfo.getFirstUnallocated(GPRArgRegs);
-    if (RegIdx != array_lengthof(GPRArgRegs))
-      ArgRegBegin = std::min(ArgRegBegin, (unsigned)GPRArgRegs[RegIdx]);
-  }
-
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     CCValAssign &VA = ArgLocs[i];
-    if (Ins[VA.getValNo()].isOrigArg()) {
-      std::advance(CurOrigArg,
-                   Ins[VA.getValNo()].getOrigArgIndex() - CurArgIdx);
-      CurArgIdx = Ins[VA.getValNo()].getOrigArgIndex();
-    }
-    // Arguments stored in registers.
+    EVT ValVT = VA.getValVT();
+    SDValue ArgValue;
+
     if (VA.isRegLoc()) {
+      // Argument is passed in a register
       EVT RegVT = VA.getLocVT();
+      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &DLX::GPRRegClass);
+      ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, RegVT);
 
-      if (VA.needsCustom()) {
-        llvm_unreachable("Custom val assignment not supported by "
-                         "FORMAL_ARGUMENTS Lowering");
-      } else {
-        const TargetRegisterClass *RC;
-
-        if (RegVT == MVT::i32)
-          RC = &DLX::GPRRegClass;
-        else
-          llvm_unreachable("RegVT not supported by FORMAL_ARGUMENTS Lowering");
-
-        // Transform the arguments in physical registers into virtual ones.
-        unsigned Reg = MF.addLiveIn(VA.getLocReg(), RC);
-        ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, RegVT);
-      }
-
-      // If this is an 8 or 16-bit value, it is really passed promoted
-      // to 32 bits.  Insert an assert[sz]ext to capture this, then
-      // truncate to the right size.
-      switch (VA.getLocInfo()) {
-      default: llvm_unreachable("Unknown loc info!");
-      case CCValAssign::Full: break;
-      case CCValAssign::BCvt:
-        ArgValue = DAG.getNode(ISD::BITCAST, dl, VA.getValVT(), ArgValue);
-        break;
-      case CCValAssign::SExt:
+      // Handle any needed conversions.
+      if (VA.getLocInfo() == CCValAssign::SExt) {
         ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
-                               DAG.getValueType(VA.getValVT()));
-        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
-        break;
-      case CCValAssign::ZExt:
+                               DAG.getValueType(ValVT));
+        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
+      } else if (VA.getLocInfo() == CCValAssign::ZExt) {
         ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
-                               DAG.getValueType(VA.getValVT()));
-        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
-        break;
+                               DAG.getValueType(ValVT));
+        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
+      } else if (VA.getLocInfo() == CCValAssign::AExt) {
+        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
       }
 
       InVals.push_back(ArgValue);
-    } else { // VA.isRegLoc()
-      // sanity check
-      assert(VA.isMemLoc());
-      assert(VA.getValVT() != MVT::i64 && "i64 should already be lowered");
 
-      int index = VA.getValNo();
+    } else if (VA.isMemLoc()) {
+      // Argument is passed on the stack
+      int FI = MFI.CreateFixedObject(ValVT.getSizeInBits() / 8, VA.getLocMemOffset(),
+                                     true);
+      SDValue FIN = DAG.getFrameIndex(FI, MVT::i32);
+      ArgValue = DAG.getLoad(ValVT, dl, Chain, FIN,
+                             MachinePointerInfo::getFixedStack(MF, FI));
 
-      // Some Ins[] entries become multiple ArgLoc[] entries.
-      // Process them only once.
-      if (index != lastInsIndex)
-      {
-        llvm_unreachable("Cannot retrieve arguments from the stack");
-      }
+      InVals.push_back(ArgValue);
+    } else {
+      llvm_unreachable("Unknown argument location");
     }
   }
 
   return Chain;
 }
+
 
 //===----------------------------------------------------------------------===//
 //@              Return Value Calling Convention Implementation
@@ -548,10 +484,26 @@ SDValue DLXTargetLowering::getGlobalAddressWrapper(SDValue GA,
 //  Misc Lower Operation implementation
 //===----------------------------------------------------------------------===//
 
-SDValue DLXTargetLowering::
-LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const {
-  llvm_unreachable("Unsupported global address");
+SDValue DLXTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const {
+  // Cast the SDValue to a GlobalAddressSDNode
+  GlobalAddressSDNode *GSDN = cast<GlobalAddressSDNode>(Op);
+  const GlobalValue *GV = GSDN->getGlobal();
+  SDLoc DL(Op);
+
+  // Retrieve the offset, which is typically 0 unless specified
+  int64_t Offset = GSDN->getOffset();
+  
+  // Create a TargetGlobalAddress node. This node represents the address
+  // of the global variable. For a simple implementation, we directly 
+  // use this address to load it into a register.
+  SDValue TGA = DAG.getTargetGlobalAddress(GV, DL, MVT::i32, Offset);
+
+  SDValue Result = TGA;
+
+  // Return the node representing the loaded global address
+  return Result;
 }
+
 
 SDValue DLXTargetLowering::
 LowerConstantPool(SDValue Op, SelectionDAG &DAG) const {
