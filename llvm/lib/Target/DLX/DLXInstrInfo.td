@@ -414,3 +414,4 @@ def PseudoCALL : Pseudo<(outs), (ins call_symbol:$imm26), []>,
 
 def : Pat<(dlx_call tglobaladdr:$imm26), (PseudoCALL tglobaladdr:$imm26)>;
 def : Pat<(dlx_call texternalsym:$imm26), (PseudoCALL texternalsym:$imm26)>;
+def : Pat<(dlx_call GPR:$rs1), (JALR GPR:$rs1)>;

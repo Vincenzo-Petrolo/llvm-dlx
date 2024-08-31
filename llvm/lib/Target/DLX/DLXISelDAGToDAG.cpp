@@ -27,6 +27,8 @@ bool DLXDAGToDAGISel::runOnMachineFunction(MachineFunction &MF) {
 
 void DLXDAGToDAGISel::Select(SDNode *Node) {
   unsigned Opcode = Node->getOpcode();
+  SDLoc DL(Node);
+  EVT VT = Node->getValueType(0);
 
   // If we have a custom node, we already have selected!
   if (Node->isMachineOpcode()) {
@@ -38,7 +40,14 @@ void DLXDAGToDAGISel::Select(SDNode *Node) {
   // Instruction Selection not handled by the auto-generated tablegen selection
   // should be handled here.
   switch(Opcode) {
-  default: break;
+    case ISD::FrameIndex: {
+      SDValue Imm = CurDAG->getTargetConstant(0, DL, MVT::i32);
+      int FI = cast<FrameIndexSDNode>(Node)->getIndex();
+      SDValue TFI = CurDAG->getTargetFrameIndex(FI, VT);
+      ReplaceNode(Node, CurDAG->getMachineNode(DLX::ADDI, DL, VT, TFI, Imm));
+      return;
+    }
+    default: break;
   }
 
   // Select the default instruction

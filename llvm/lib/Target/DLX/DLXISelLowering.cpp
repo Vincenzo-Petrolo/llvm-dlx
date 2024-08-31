@@ -67,7 +67,7 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BlockAddress,  MVT::i32, Custom);
   setOperationAction(ISD::ConstantPool,  MVT::i32, Custom);
   setOperationAction(ISD::SELECT,        MVT::i32, Custom);
-  setOperationAction(ISD::FrameIndex,    MVT::i32, Custom);
+  setOperationAction(ISD::ExternalSymbol,MVT::i32, Custom);
 
   // Expand to implement using more basic operations
   // TODO, add other operations that are missing from DLX ISA
@@ -645,6 +645,32 @@ DLXTargetLowering::LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const {
   return Addr;
 }
 
+SDValue 
+DLXTargetLowering::LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const {
+  ExternalSymbolSDNode *ES = cast<ExternalSymbolSDNode>(Op);
+  const char *Symbol = ES->getSymbol();
+
+  SDLoc DL(Op);
+  SDValue Chain = DAG.getEntryNode();
+  
+  // Get the target-specific symbol node
+  SDValue Callee = DAG.getTargetExternalSymbol(Symbol, getPointerTy(DAG.getDataLayout()));
+
+  // Determine if the callee is a symbol (direct call) or a register (indirect call)
+  if (isa<ExternalSymbolSDNode>(Callee)) {
+      // Direct call to an external symbol
+      // JAL: Direct Jump And Link to an external symbol
+      SDValue Ops[] = { Callee, Chain };  // Callee is a symbol
+      return DAG.getNode(DLXISD::Call, DL, DAG.getVTList(MVT::Other, MVT::Glue), Ops);
+  } else {
+      // Indirect call via register (e.g., function pointer)
+      // JALR: Jump And Link Register
+      SDValue Reg = Callee;  // Callee is a register here
+      SDValue Ops[] = { Reg, Chain };  // Register comes before Chain
+      return DAG.getNode(DLXISD::Call, DL, DAG.getVTList(MVT::Other, MVT::Glue), Ops);
+  }
+}
+
 SDValue
 DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
@@ -654,7 +680,7 @@ DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::RETURNADDR:           return lowerRETURNADDR(Op, DAG);
   case ISD::SELECT:               return lowerSELECT(Op, DAG);
   case ISD::FRAMEADDR:            return lowerFRAMEADDR(Op, DAG);
-  case ISD::FrameIndex:           return LowerFrameIndex(Op, DAG);
+  case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
   default: llvm_unreachable("unimplemented operand");
   }
 }
