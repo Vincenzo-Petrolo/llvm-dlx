@@ -107,3 +107,8 @@ Consult the
 page for detailed information on configuring and compiling LLVM. You can visit
 [Directory Layout](https://llvm.org/docs/GettingStarted.html#directory-layout)
 to learn about the layout of the source code tree.
+
+### DLX32 Configuration
+```sh
+cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="DLX" -DCMAKE_BUILD_TYPE="Debug" -DLLVM_ENABLE_ASSERTIONS=Off -DLLVM_DEFAULT_TARGET_TRIPLE="dlx32-unknown-elf"  ../llvm/
+```
