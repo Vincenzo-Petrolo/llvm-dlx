@@ -74,6 +74,12 @@ static MCAsmInfo *createDLXMCAsmInfo(const MCRegisterInfo &MRI,
   return MAI;
 }
 
+static MCCodeEmitter *createDLXMCCodeEmitter(const MCInstrInfo &MCII,
+                                              const MCRegisterInfo &MRI,
+                                              MCContext &Ctx) {
+  return new DLXMCCodeEmitter(Ctx, MCII);
+}
+
 extern "C" void LLVMInitializeDLXTargetMC() {
   for (Target *T : {&getTheDLXTarget()}) {
     // Register the MC asm info.
@@ -90,5 +96,8 @@ extern "C" void LLVMInitializeDLXTargetMC() {
 
     // Register the MCInstPrinter.
     TargetRegistry::RegisterMCInstPrinter(*T, createDLXMCInstPrinter);
+
+    // Register the MCCodeEmitter.
+    TargetRegistry::RegisterMCCodeEmitter(*T, createDLXMCCodeEmitter);
   }
 }

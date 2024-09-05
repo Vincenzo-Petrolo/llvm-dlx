@@ -9,6 +9,7 @@ tablegen(LLVM DLXGenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM DLXGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM DLXGenSubtargetInfo.inc -gen-subtarget)
 tablegen(LLVM DLXGenMCPseudoLowering.inc -gen-pseudo-lowering)
+tablegen(LLVM DLXGenAsmMatcher.inc -gen-asm-matcher)
 
 # DLXCommonTableGen must be defined
 add_public_tablegen_target(DLXCommonTableGen)
@@ -29,3 +30,4 @@ add_llvm_target(DLXCodeGen
 # Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
+add_subdirectory(AsmParser)
