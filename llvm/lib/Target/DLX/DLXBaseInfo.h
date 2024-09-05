@@ -31,6 +31,14 @@ enum {
   InstFormatMask = 31
 };
 
+// DLX Specific Machine Operand Flags
+enum {
+  MO_None = 0,
+  MO_CALL = 1,
+  MO_LO = 2,
+  MO_HI = 3,
+};
+
 } // namespace DLXII
 
 namespace DLXOp {

@@ -31,6 +31,12 @@ enum NodeType {
 
   // Return
   Ret,
+
+  // Custom node for loading high immediate
+  LHI,
+  
+  // Custom node for OR immediate
+  ORI,
 };
 }
 

@@ -29,131 +29,63 @@
 
 using namespace llvm;
 
-static cl::opt<bool> HasLLD(
-  "has-lld",
-  cl::init(false),
-  cl::desc("DLX: Has lld linker for DLX."),
-  cl::Hidden);
-
-//@adjustFixupValue {
-// Prepare value for the target space for it
-static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
-                                 MCContext &Ctx) {
-
-  unsigned Kind = Fixup.getKind();
-
-  // Add/subtract and shift
-  switch (Kind) {
-  default:
-    return 0;
-  case FK_GPRel_4:
-  case FK_Data_4:
-  case DLX::fixup_DLX_LO16:
-    break;
-  case DLX::fixup_DLX_HI16:
-  case DLX::fixup_DLX_GOT:
-    // Get the higher 16-bits. Also add 1 if bit 15 is 1.
-    Value = (Value >> 16) & 0xffff;
-    break;
-  }
-
-  return Value;
-}
-//@adjustFixupValue }
-
 std::unique_ptr<MCObjectTargetWriter>
 DLXAsmBackend::createObjectTargetWriter() const {
   return createDLXELFObjectWriter(TheTriple);
 }
 
-/// ApplyFixup - Apply the \p Value for given \p Fixup into the provided
-/// data fragment, at the offset specified by the fixup and following the
-/// fixup kind as appropriate.
 void DLXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
-                                const MCValue &Target,
-                                MutableArrayRef<char> Data, uint64_t Value,
-                                bool IsResolved,
-                                const MCSubtargetInfo *STI) const {
+                               const MCValue &Target, MutableArrayRef<char> Data,
+                               uint64_t Value, bool IsResolved,
+                               const MCSubtargetInfo *STI) const {
   MCFixupKind Kind = Fixup.getKind();
-  MCContext &Ctx = Asm.getContext();
-  Value = adjustFixupValue(Fixup, Value, Ctx);
-
-  if (!Value)
-    return; // Doesn't change encoding.
-
-  // Where do we start in the object
   unsigned Offset = Fixup.getOffset();
-  // Number of bytes we need to fixup
-  unsigned NumBytes = (getFixupKindInfo(Kind).TargetSize + 7) / 8;
-  // Used to point to big endian bytes
-  unsigned FullSize;
+  unsigned NumBytes = 4; // Assuming 32-bit instructions
 
-  switch ((unsigned)Kind) {
-  default:
-    FullSize = 4;
+  // Determine the mask and shift based on the fixup kind
+  uint64_t Mask = 0;
+
+  switch (Kind) {
+  case DLX::fixup_DLX_LO16:
+    Mask = 0xFFFF;
+    Value &= Mask; // Mask to get the lower 16 bits
     break;
+
+  case DLX::fixup_DLX_HI16:
+    Mask = 0xFFFF;
+    Value = (Value >> 16) & Mask; // Shift right to get the higher 16 bits
+    break;
+
+  case DLX::fixup_DLX_JAL_PC26:
+    Value >>= 2; // Convert to word-aligned address for 26-bit offset
+    Mask = 0x03FFFFFF;
+    Value &= Mask; // Mask to get the 26-bit field
+    break;
+
+  default:
+    llvm_unreachable("Unknown fixup kind!");
   }
 
-  // Grab current value, if any, from bits.
-  uint64_t CurVal = 0;
-
-  for (unsigned i = 0; i != NumBytes; ++i) {
-    unsigned Idx = TheTriple.isLittleEndian() ? i : (FullSize - 1 - i);
-    CurVal |= (uint64_t)((uint8_t)Data[Offset + Idx]) << (i*8);
-  }
-
-  uint64_t Mask = ((uint64_t)(-1) >>
-                    (64 - getFixupKindInfo(Kind).TargetSize));
-  CurVal |= Value & Mask;
-
-  // Write out the fixed up bytes back to the code/data bits.
-  for (unsigned i = 0; i != NumBytes; ++i) {
-    unsigned Idx = TheTriple.isLittleEndian() ? i : (FullSize - 1 - i);
-    Data[Offset + Idx] = (uint8_t)((CurVal >> (i*8)) & 0xff);
+  // Apply the fixup by inserting the value into the instruction
+  for (unsigned i = 0; i < NumBytes; ++i) {
+    Data[Offset + i] = uint8_t((Value >> (i * 8)) & 0xff);
   }
 }
 
-//@getFixupKindInfo {
-const MCFixupKindInfo &DLXAsmBackend::
-getFixupKindInfo(MCFixupKind Kind) const {
-  unsigned JSUBReloRec = 0;
-  if (HasLLD) {
-    JSUBReloRec = MCFixupKindInfo::FKF_IsPCRel;
-  }
-  else {
-    JSUBReloRec = MCFixupKindInfo::FKF_IsPCRel | MCFixupKindInfo::FKF_Constant;
-  }
-  const static MCFixupKindInfo Infos[DLX::NumTargetFixupKinds] = {
-    // This table *must* be in same the order of fixup_* kinds in
-    // DLXFixupKinds.h.
-    //
-    // name                        offset  bits  flags
-    { "fixup_DLX_32",             0,     32,   0 },
-    { "fixup_DLX_HI26",           6,     26,   0 },
-    { "fixup_DLX_HI16",           0,     16,   0 },
-    { "fixup_DLX_LO16",           0,     16,   0 },
-    { "fixup_DLX_GPREL16",        0,     16,   0 },
-    { "fixup_DLX_GOT",            0,     16,   0 },
-    { "fixup_DLX_GOT_HI16",       0,     16,   0 },
-    { "fixup_DLX_GOT_LO16",       0,     16,   0 }
-  };
+const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
+    const static MCFixupKindInfo Infos[DLX::LastTargetFixupKind - DLX::FirstTargetFixupKind] = {
+        // Name, Offset, Bits, Flags
+        { "fixup_DLX_LO16", 0, 16, 0 }, // Lower 16 bits
+        { "fixup_DLX_HI16", 0, 16, 0 }, // Higher 16 bits
+        { "fixup_DLX_JAL_PC26", 0, 26, MCFixupKindInfo::FKF_IsPCRel } // 26-bit PC-relative
+    };
 
-  if (Kind < FirstTargetFixupKind)
+    if (Kind >= FirstTargetFixupKind && Kind < LastTargetFixupKind) {
+        return Infos[Kind - FirstTargetFixupKind];
+    }
+
+    // Default case for standard fixups
     return MCAsmBackend::getFixupKindInfo(Kind);
-
-  assert(unsigned(Kind - FirstTargetFixupKind) < getNumFixupKinds() &&
-         "Invalid kind!");
-  return Infos[Kind - FirstTargetFixupKind];
-}
-//@getFixupKindInfo }
-
-/// WriteNopData - Write an (optimal) nop sequence of Count bytes
-/// to the given output. If the target cannot generate such a sequence,
-/// it should return an error.
-///
-/// \return - True on success.
-bool DLXAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
-  return true;
 }
 
 // MCAsmBackend

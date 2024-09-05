@@ -485,23 +485,25 @@ SDValue DLXTargetLowering::getGlobalAddressWrapper(SDValue GA,
 //===----------------------------------------------------------------------===//
 
 SDValue DLXTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const {
-  // Cast the SDValue to a GlobalAddressSDNode
-  GlobalAddressSDNode *GSDN = cast<GlobalAddressSDNode>(Op);
-  const GlobalValue *GV = GSDN->getGlobal();
-  SDLoc DL(Op);
+    GlobalAddressSDNode *GSDN = cast<GlobalAddressSDNode>(Op);
+    const GlobalValue *GV = GSDN->getGlobal();
+    SDLoc DL(Op);
+    
+    // Retrieve the offset, which is typically 0 unless specified
+    int64_t Offset = GSDN->getOffset();
 
-  // Retrieve the offset, which is typically 0 unless specified
-  int64_t Offset = GSDN->getOffset();
-  
-  // Create a TargetGlobalAddress node. This node represents the address
-  // of the global variable. For a simple implementation, we directly 
-  // use this address to load it into a register.
-  SDValue TGA = DAG.getTargetGlobalAddress(GV, DL, MVT::i32, Offset);
+    // Step 1: Create TargetGlobalAddress nodes for the high and low parts
+    SDValue HighPart = DAG.getTargetGlobalAddress(GV, DL, MVT::i32, Offset, DLXII::MO_HI);
+    SDValue LowPart = DAG.getTargetGlobalAddress(GV, DL, MVT::i32, Offset, DLXII::MO_LO);
 
-  SDValue Result = TGA;
+    // Step 2: Load the high part into a register
+    SDValue LHI = DAG.getNode(DLXISD::LHI, DL, MVT::i32, HighPart);
 
-  // Return the node representing the loaded global address
-  return Result;
+    // Step 3: Combine with the low part using ORI
+    SDValue ORI = DAG.getNode(DLXISD::ORI, DL, MVT::i32, LHI, LowPart);
+
+    // Step 4: Return the final result that combines high and low parts
+    return ORI;
 }
 
 
@@ -612,6 +614,7 @@ DLXTargetLowering::LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const {
   if (isa<ExternalSymbolSDNode>(Callee)) {
       // Direct call to an external symbol
       // JAL: Direct Jump And Link to an external symbol
+      Callee = DAG.getTargetExternalSymbol(Symbol, getPointerTy(DAG.getDataLayout()), DLXII::MO_CALL);
       SDValue Ops[] = { Callee, Chain };  // Callee is a symbol
       return DAG.getNode(DLXISD::Call, DL, DAG.getVTList(MVT::Other, MVT::Glue), Ops);
   } else {

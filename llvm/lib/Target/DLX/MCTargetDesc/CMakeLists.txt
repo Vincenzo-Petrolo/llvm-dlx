@@ -3,4 +3,5 @@ add_llvm_library(LLVMDLXDesc
   DLXMCTargetDesc.cpp
   DLXMCCodeEmitter.cpp
   DLXInstPrinter.cpp
+  DLXMCExpr.cpp
 )

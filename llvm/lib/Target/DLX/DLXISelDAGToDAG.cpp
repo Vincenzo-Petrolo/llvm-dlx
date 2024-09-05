@@ -47,6 +47,19 @@ void DLXDAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CurDAG->getMachineNode(DLX::ADDI, DL, VT, TFI, Imm));
       return;
     }
+    case DLXISD::LHI: {
+      // Emit the LHI machine instruction
+      SDValue Imm16 = Node->getOperand(0);
+      ReplaceNode(Node, CurDAG->getMachineNode(DLX::LHI, DL, MVT::i32, Imm16));
+      return;
+    }
+    case DLXISD::ORI: {
+      // Emit the ORI machine instruction
+      SDValue Reg = Node->getOperand(0);
+      SDValue Imm16 = Node->getOperand(1);
+      ReplaceNode(Node, CurDAG->getMachineNode(DLX::ORI, DL, MVT::i32, Reg, Imm16));
+      return;
+    }
     default: break;
   }
 

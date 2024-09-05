@@ -135,6 +135,8 @@ MCOperand DLXAsmPrinter::LowerSymbolOperand(const MachineOperand &MO,
                                               MCSymbol *Sym) const {
   MCContext &Ctx = OutContext;
 
+  // See lowerSymbolOperand function in RISCVInstLower.cpp
+
   const MCExpr *Expr =
     MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Ctx);
 
