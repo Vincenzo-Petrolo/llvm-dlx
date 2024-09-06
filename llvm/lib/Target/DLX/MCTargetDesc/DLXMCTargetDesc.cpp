@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "DLXMCTargetDesc.h"
+#include "DLXELFStreamer.h"
 #include "DLXInstPrinter.h"
 #include "DLXMCAsmInfo.h"
 #include "TargetInfo/DLXTargetInfo.h"
@@ -74,10 +75,13 @@ static MCAsmInfo *createDLXMCAsmInfo(const MCRegisterInfo &MRI,
   return MAI;
 }
 
-static MCCodeEmitter *createDLXMCCodeEmitter(const MCInstrInfo &MCII,
-                                              const MCRegisterInfo &MRI,
-                                              MCContext &Ctx) {
-  return new DLXMCCodeEmitter(Ctx, MCII);
+static MCTargetStreamer *
+createDLXObjectTargetStreamer(MCStreamer &S, const MCSubtargetInfo &STI) {
+  const Triple &TT = STI.getTargetTriple();
+  if (TT.isOSBinFormatELF()) {
+    return new DLXTargetELFStreamer(S, STI);
+  }
+  return nullptr;
 }
 
 extern "C" void LLVMInitializeDLXTargetMC() {
@@ -99,5 +103,8 @@ extern "C" void LLVMInitializeDLXTargetMC() {
 
     // Register the MCCodeEmitter.
     TargetRegistry::RegisterMCCodeEmitter(*T, createDLXMCCodeEmitter);
+
+    // Register output streamer
+    TargetRegistry::RegisterObjectTargetStreamer(*T, createDLXObjectTargetStreamer);
   }
 }

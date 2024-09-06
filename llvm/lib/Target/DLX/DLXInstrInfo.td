@@ -410,7 +410,9 @@ def dlx_call      : SDNode<"DLXISD::Call", SDT_RISCVCall,
 
 let isCall = 1, Defs = [R31], isCodeGenOnly = 0 in
 def PseudoCALL : Pseudo<(outs), (ins call_symbol:$imm26), []>,
-                 PseudoInstExpansion<(JAL call_symbol:$imm26)>;
+                 PseudoInstExpansion<(JAL call_symbol:$imm26)> {
+  let AsmString = "jal $imm26";
+}
 
 def : Pat<(dlx_call tglobaladdr:$imm26), (PseudoCALL tglobaladdr:$imm26)>;
 def : Pat<(dlx_call texternalsym:$imm26), (PseudoCALL texternalsym:$imm26)>;

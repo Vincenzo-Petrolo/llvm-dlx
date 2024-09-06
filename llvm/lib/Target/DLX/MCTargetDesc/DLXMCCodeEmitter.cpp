@@ -13,7 +13,7 @@
 #include "MCTargetDesc/DLXFixupKinds.h"
 #include "MCTargetDesc/DLXMCExpr.h"
 #include "MCTargetDesc/DLXMCTargetDesc.h"
-#include "Utils/DLXBaseInfo.h"
+#include "DLXBaseInfo.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -124,23 +124,6 @@ void DLXMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
   }
 }
 
-// Emit one byte through output stream (from MCBlazeMCCodeEmitter)
-void EmitByte(unsigned char C, unsigned &CurByte, raw_ostream &OS) const {
-  OS << (char)C;
-  ++CurByte;
-}
-
-// Emit a series of bytes (from MCBlazeMCCodeEmitter)
-void EmitConstant(uint64_t Val, unsigned Size, unsigned &CurByte,
-                  raw_ostream &OS) const {
-  assert(Size <= 8 && "size too big in emit constant");
-
-  for (unsigned i = 0; i != Size; ++i) {
-    EmitByte(Val & 255, CurByte, OS);
-    Val >>= 8;
-  }
-}
-
 unsigned
 DLXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                                       SmallVectorImpl<MCFixup> &Fixups,
@@ -183,19 +166,14 @@ DLXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
   }
 
   // Push fixup (all info is contained within)
-  Fixups.push_back(MCFixup::Create(0, MO.getExpr(), MCFixupKind(FixupKind)));
+  Fixups.push_back(MCFixup::create(0, MO.getExpr(), MCFixupKind(FixupKind)));
   return 0;
 }
 
-void DLXMCCodeEmitter::
-EncodeInstruction(const MCInst &MI, raw_ostream &OS,
-                         SmallVectorImpl<MCFixup> &Fixups) const {
-  // Keep track of the current byte being emitted
-  unsigned CurByte = 0;
-  // Get instruction encoding and emit it
-  ++MCNumEmitted;       // Keep track of the number of emitted insns.
-  unsigned Value = getBinaryCodeForInstr(MI);
-  EmitConstant(Value, 4, CurByte, OS);
+MCCodeEmitter *createDLXMCCodeEmitter(const MCInstrInfo &MCII,
+                                              const MCRegisterInfo &MRI,
+                                              MCContext &Ctx) {
+  return new DLXMCCodeEmitter(Ctx, MCII);
 }
 
 #include "DLXGenMCCodeEmitter.inc"
