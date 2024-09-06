@@ -106,6 +106,14 @@ public:
 };
 } // end anonymous namespace
 
+
+MCCodeEmitter *llvm::createDLXMCCodeEmitter(const MCInstrInfo &MCII,
+                                              const MCRegisterInfo &MRI,
+                                              MCContext &Ctx) {
+  return new DLXMCCodeEmitter(Ctx, MCII);
+}
+
+
 void DLXMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
                                            SmallVectorImpl<MCFixup> &Fixups,
                                            const MCSubtargetInfo &STI) const {
@@ -154,13 +162,13 @@ DLXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
   switch(cast<MCSymbolRefExpr>(Expr)->getKind()) {
       default: llvm_unreachable("Unknown fixup kind!");
       break;
-      case DLX::VK_DLX_LO:
+      case DLXMCExpr::VK_DLX_LO:
           FixupKind = DLX::fixup_DLX_LO16;
           break;
-      case DLX::VK_DLX_HI:
+      case DLXMCExpr::VK_DLX_HI:
           FixupKind = DLX::fixup_DLX_HI16;
           break;
-      case DLX::VK_DLX_CALL:
+      case DLXMCExpr::VK_DLX_CALL:
           FixupKind = DLX::fixup_DLX_JAL_PC26;
           break;
   }
@@ -170,10 +178,58 @@ DLXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
   return 0;
 }
 
-MCCodeEmitter *createDLXMCCodeEmitter(const MCInstrInfo &MCII,
-                                              const MCRegisterInfo &MRI,
-                                              MCContext &Ctx) {
-  return new DLXMCCodeEmitter(Ctx, MCII);
+unsigned DLXMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
+
+                                           SmallVectorImpl<MCFixup> &Fixups,
+                                           const MCSubtargetInfo &STI) const {
+  const MCOperand &MO = MI.getOperand(OpNo);
+
+  MCInstrDesc const &Desc = MCII.get(MI.getOpcode());
+  unsigned MIFrm = Desc.TSFlags & DLXII::InstFormatMask;
+
+  // If the destination is an immediate, there is nothing to do.
+  if (MO.isImm())
+    return MO.getImm();
+
+  assert(MO.isExpr() &&
+         "getImmOpValue expects only expressions or immediates");
+  const MCExpr *Expr = MO.getExpr();
+  MCExpr::ExprKind Kind = Expr->getKind();
+  DLX::Fixups FixupKind = (DLX::Fixups) -1;
+
+  if (Kind == MCExpr::Target) {
+    const DLXMCExpr *RVExpr = cast<DLXMCExpr>(Expr);
+
+    switch (RVExpr->getKind()) {
+    case DLXMCExpr::VK_DLX_None:
+    case DLXMCExpr::VK_DLX_LO:
+      if (MIFrm == DLXII::InstFormatI)
+        FixupKind = DLX::fixup_DLX_LO16;
+      else
+        llvm_unreachable("VK_DLX_LO used with unexpected instruction format");
+      break;
+    case DLXMCExpr::VK_DLX_HI:
+      FixupKind = DLX::fixup_DLX_HI16;
+      break;
+    default:
+      llvm_unreachable("Unhandled fixup kind!");
+      break;
+    }
+  } else if (Kind == MCExpr::SymbolRef &&
+             cast<MCSymbolRefExpr>(Expr)->getKind() == MCSymbolRefExpr::VK_None) {
+    if (Desc.getOpcode() == DLX::JAL) {
+      FixupKind = DLX::fixup_DLX_JAL_PC26;
+    }  
+    }
+  
+  if (FixupKind == -1) {
+    llvm_unreachable("Unhandled fixup kind!");
+  }
+
+  Fixups.push_back(
+      MCFixup::create(0, Expr, MCFixupKind(FixupKind), MI.getLoc()));
+
+  return 0;
 }
 
 #include "DLXGenMCCodeEmitter.inc"

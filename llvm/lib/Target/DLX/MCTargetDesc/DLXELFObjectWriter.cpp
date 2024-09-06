@@ -80,6 +80,6 @@ unsigned DLXELFObjectWriter::getRelocType(MCContext &Ctx,
 }
 
 std::unique_ptr<MCObjectTargetWriter>
-llvm::createDLXELFObjectWriter(uint8_t OSABI, bool Is64Bit) {
+createDLXELFObjectWriter(uint8_t OSABI, bool Is64Bit) {
   return std::make_unique<DLXELFObjectWriter>(OSABI, Is64Bit);
 }

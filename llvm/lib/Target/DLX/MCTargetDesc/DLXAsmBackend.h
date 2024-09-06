@@ -48,29 +48,21 @@ public:
     return DLX::NumTargetFixupKinds;
   }
 
-  /// @name Target Relaxation Interfaces
-  /// @{
-
-  /// MayNeedRelaxation - Check whether the given instruction may need
-  /// relaxation.
-  ///
-  /// \param Inst - The instruction to test.
   bool mayNeedRelaxation(const MCInst &Inst,
                          const MCSubtargetInfo &STI) const override {
     return false;
   }
 
-  /// fixupNeedsRelaxation - Target specific predicate for whether a given
-  /// fixup requires the associated instruction to be relaxed.
    bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
                              const MCRelaxableFragment *DF,
                              const MCAsmLayout &Layout) const override {
-    // FIXME.
-    llvm_unreachable("RelaxInstruction() unimplemented");
     return false;
   }
 
-  /// @}
+  
+  void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
+                                MCInst &Res) const override;
+
 
   bool writeNopData(raw_ostream &OS, uint64_t Count) const override;
 }; // class DLXAsmBackend

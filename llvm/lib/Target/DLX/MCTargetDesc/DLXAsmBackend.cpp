@@ -18,6 +18,7 @@
 #include "MCTargetDesc/DLXMCTargetDesc.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
+#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCFixupKindInfo.h"
@@ -28,11 +29,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
-
-std::unique_ptr<MCObjectTargetWriter>
-DLXAsmBackend::createObjectTargetWriter() const {
-  return createDLXELFObjectWriter(TheTriple);
-}
 
 void DLXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                                const MCValue &Target, MutableArrayRef<char> Data,
@@ -73,15 +69,15 @@ void DLXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
 }
 
 const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
-    const static MCFixupKindInfo Infos[DLX::LastTargetFixupKind - DLX::FirstTargetFixupKind] = {
+    const static MCFixupKindInfo Infos[DLX::NumTargetFixupKinds] = {
         // Name, Offset, Bits, Flags
         { "fixup_DLX_LO16", 0, 16, 0 }, // Lower 16 bits
         { "fixup_DLX_HI16", 0, 16, 0 }, // Higher 16 bits
         { "fixup_DLX_JAL_PC26", 0, 26, MCFixupKindInfo::FKF_IsPCRel } // 26-bit PC-relative
     };
 
-    if (Kind >= FirstTargetFixupKind && Kind < LastTargetFixupKind) {
-        return Infos[Kind - FirstTargetFixupKind];
+    if (Kind >= DLX::FirstTargetFixupKind && Kind < DLX::NumTargetFixupKinds) {
+        return Infos[Kind - DLX::FirstTargetFixupKind];
     }
 
     // Default case for standard fixups
@@ -89,9 +85,13 @@ const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
 }
 
 // MCAsmBackend
-MCAsmBackend *llvm::createDLXAsmBackend(const Target &T,
+MCAsmBackend *createDLXAsmBackend(const Target &T,
                                          const MCSubtargetInfo &STI,
                                          const MCRegisterInfo &MRI,
                                          const MCTargetOptions &Options) {
   return new DLXAsmBackend(T, STI.getTargetTriple());
+}
+
+void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI, MCInst &Res) {
+  llvm_unreachable("RelaxInstruction() unimplemented");
 }

@@ -15,12 +15,15 @@
 namespace llvm {
 namespace DLX {
   enum Fixups {
+    FirstTargetFixupKind,
     fixup_DLX_LO16 = FirstTargetFixupKind, // Lower 16 bits
     fixup_DLX_HI16,                       // Higher 16 bits
     fixup_DLX_JAL_PC26,                   // 26-bit PC-relative address for calls/jumps
 
 
-    LastTargetFixupKind = fixup_DLX_JAL_PC26
+    // fixup_riscv_invalid - used as a sentinel and a marker, must be last fixup
+    fixup_DLX_invalid,
+    NumTargetFixupKinds = fixup_DLX_invalid - FirstTargetFixupKind
   };
 } // namespace DLX
 } // namespace llvm
