@@ -16,6 +16,26 @@
 
 #include "DLXBaseInfo.h"
 
+namespace llvm {
+class MCAsmBackend;
+class MCCodeEmitter;
+class MCContext;
+class MCInstrInfo;
+class MCObjectTargetWriter;
+class MCRegisterInfo;
+class MCSubtargetInfo;
+class StringRef;
+class Target;
+class Triple;
+class raw_ostream;
+class raw_pwrite_stream;
+
+MCCodeEmitter *createDLXMCCodeEmitter(const MCInstrInfo &MCII,
+                                        const MCRegisterInfo &MRI,
+                                        MCContext &Ctx);
+
+}
+
 // Defines symbolic names for DLX registers. This defines a mapping from
 // register name to register number.
 #define GET_REGINFO_ENUM
