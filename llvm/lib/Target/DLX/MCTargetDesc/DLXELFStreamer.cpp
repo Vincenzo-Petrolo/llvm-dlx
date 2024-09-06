@@ -12,8 +12,8 @@
 
 #include "DLXELFStreamer.h"
 #include "MCTargetDesc/DLXAsmBackend.h"
-#include "DLXMCTargetDesc.h"
-#include "Utils/DLXBaseInfo.h"
+#include "MCTargetDesc/DLXMCTargetDesc.h"
+#include "DLXBaseInfo.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 

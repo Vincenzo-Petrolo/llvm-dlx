@@ -6,4 +6,6 @@ add_llvm_library(LLVMDLXDesc
   DLXELFObjectWriter.cpp
   DLXAsmBackend.cpp
   DLXMCTargetDesc.cpp
+  DLXELFStreamer.cpp
+  DLXTargetStreamer.cpp
 )

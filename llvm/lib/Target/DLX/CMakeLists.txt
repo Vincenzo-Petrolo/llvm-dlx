@@ -25,8 +25,6 @@ add_llvm_target(DLXCodeGen
   DLXTargetObjectFile.cpp
   DLXISelDAGToDAG.cpp
   DLXTargetMachine.cpp
-  DLXELFStreamer.cpp
-  DLXTargetStreamer.cpp
 )
 
 # Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt
