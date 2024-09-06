@@ -25,6 +25,11 @@ include "DLXInstrInfo.td"
 
 def DLXInstrInfo : InstrInfo;
 
+def DLXAsmParser : AsmParser {
+  let ShouldEmitMatchRegisterAltName = 1;
+  let AllowDuplicateRegisterNames = 1;
+}
+
 //===----------------------------------------------------------------------===//
 // DLX processors supported
 //===----------------------------------------------------------------------===//
@@ -37,4 +42,5 @@ def : ProcessorModel<"generic",  NoSchedModel, []>;
 
 def DLX : Target {
   let InstructionSet = DLXInstrInfo;
+  let AssemblyParsers = [DLXAsmParser];
 }

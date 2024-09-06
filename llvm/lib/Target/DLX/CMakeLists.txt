@@ -1,5 +1,6 @@
 set(LLVM_TARGET_DEFINITIONS DLX.td)
 
+tablegen(LLVM DLXGenAsmMatcher.inc -gen-asm-matcher)
 tablegen(LLVM DLXGenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM DLXGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM DLXGenCodeEmitter.inc -gen-emitter)

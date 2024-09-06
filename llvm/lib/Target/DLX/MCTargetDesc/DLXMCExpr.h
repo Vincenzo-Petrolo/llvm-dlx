@@ -12,11 +12,13 @@ public:
     VK_DLX_LO,
     VK_DLX_HI,
     VK_DLX_CALL,
+    VK_DLX_Invalid
   };
 private:
   const MCExpr *Expr;
   const VariantKind Kind;
 
+  int64_t evaluateAsInt64(int64_t Value) const;
   explicit DLXMCExpr(const MCExpr *Expr, VariantKind Kind)
       : Expr(Expr), Kind(Kind) {}
 
@@ -43,6 +45,8 @@ public:
   static bool classof(const MCExpr *E) {
     return E->getKind() == MCExpr::Target;
   }
+
+  bool evaluateAsConstant(int64_t &Res) const;
 
   static bool classof(const DLXMCExpr *) { return true; }
 

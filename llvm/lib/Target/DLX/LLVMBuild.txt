@@ -34,6 +34,7 @@ parent = Target
 # set here when the backend has more feathres such as assembly parser, JIT
 # compilation support, etc
 has_asmprinter = 1
+has_asmparser = 1
 
 [component_1]
 type = Library

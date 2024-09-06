@@ -1,13 +1,12 @@
 #include "DLX.h"
 #include "DLXRegisterInfo.h"
 #include "MCTargetDesc/DLXMCExpr.h"
-#include "MCTargetDesc/DLXMCInstrInfo.h"
-#include "MCTargetDesc/DLXMCRegisterInfo.h"
 #include "TargetInfo/DLXTargetInfo.h"
-#include "llvm/MC/MCAsmParser.h"
+#include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -25,7 +24,7 @@ class DLXAsmParser : public MCTargetAsmParser {
 
   // Constructor
   DLXAsmParser(const MCSubtargetInfo &sti, MCAsmParser &parser, const MCInstrInfo &MII, const MCTargetOptions &Options)
-      : MCTargetAsmParser(Options, sti), MII(MII), Parser(parser) {
+      : MCTargetAsmParser(Options, sti, MII), MII(MII), Parser(parser) {
     // Initialize the instruction set
     setAvailableFeatures(ComputeAvailableFeatures(sti.getFeatureBits()));
   }
@@ -39,12 +38,20 @@ class DLXAsmParser : public MCTargetAsmParser {
   // Functions to parse specific operand types
   bool ParseRegister(OperandVector &Operands);
   bool ParseImmediate(OperandVector &Operands);
-  
+  bool ParseMemOpBaseReg(OperandVector &Operands);
+  SMLoc getLoc() const { return getParser().getTok().getLoc(); }
+
   // Error handling utility
   void Error(SMLoc IDLoc, const Twine &Message);
 
   // Additional utility functions if needed
   bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name, SMLoc NameLoc, OperandVector &Operands) override;
+
+public:
+  static bool classifySymbolRef(const MCExpr *Expr,
+                                DLXMCExpr::VariantKind &Kind,
+                                int64_t &Addend);
+
 
 private:
   const MCInstrInfo &MII;
@@ -137,8 +144,7 @@ public:
     if (!isImm() || evaluateConstantImm(getImm(), Imm, VK))
       return false;
     return DLXAsmParser::classifySymbolRef(getImm(), VK, Imm) &&
-           (VK == DLXMCExpr::VK_DLX_CALL ||
-            VK == DLXMCExpr::VK_DLX_CALL_PLT);
+           (VK == DLXMCExpr::VK_DLX_CALL);
   }
 
   bool isSImm16() const {
@@ -153,9 +159,7 @@ public:
     else
       IsValid = isInt<16>(Imm);
     return IsValid && ((IsConstantImm && VK == DLXMCExpr::VK_DLX_None) ||
-                       VK == DLXMCExpr::VK_DLX_LO ||
-                       VK == DLXMCExpr::VK_DLX_PCREL_LO ||
-                       VK == DLXMCExpr::VK_DLX_TPREL_LO);
+                       VK == DLXMCExpr::VK_DLX_LO);
   }
 
   /// getStartLoc - Gets location of the first token of this operand
@@ -166,11 +170,6 @@ public:
   unsigned getReg() const override {
     assert(Kind == KindTy::Register && "Invalid type access!");
     return Reg.RegNum.id();
-  }
-
-  StringRef getSysReg() const {
-    assert(Kind == KindTy::SystemRegister && "Invalid access!");
-    return StringRef(SysReg.Data, SysReg.Length);
   }
 
   const MCExpr *getImm() const {
@@ -194,9 +193,6 @@ public:
       break;
     case KindTy::Token:
       OS << "'" << getToken() << "'";
-      break;
-    case KindTy::SystemRegister:
-      OS << "<sysreg: " << getSysReg() << '>';
       break;
     }
   }
@@ -251,12 +247,63 @@ public:
 };
 } // end anonymous namespace.
 
+#define GET_REGISTER_MATCHER
+#define GET_SUBTARGET_FEATURE_NAME
+#define GET_MATCHER_IMPLEMENTATION
+#define GET_MNEMONIC_SPELL_CHECKER
+#include "DLXGenAsmMatcher.inc"
+
+bool DLXAsmParser::classifySymbolRef(const MCExpr *Expr,
+                                       DLXMCExpr::VariantKind &Kind,
+                                       int64_t &Addend) {
+  Kind = DLXMCExpr::VK_DLX_None;
+  Addend = 0;
+
+  if (const DLXMCExpr *RE = dyn_cast<DLXMCExpr>(Expr)) {
+    Kind = RE->getKind();
+    Expr = RE->getSubExpr();
+  }
+
+  // It's a simple symbol reference or constant with no addend.
+  if (isa<MCConstantExpr>(Expr) || isa<MCSymbolRefExpr>(Expr))
+    return true;
+
+  const MCBinaryExpr *BE = dyn_cast<MCBinaryExpr>(Expr);
+  if (!BE)
+    return false;
+
+  if (!isa<MCSymbolRefExpr>(BE->getLHS()))
+    return false;
+
+  if (BE->getOpcode() != MCBinaryExpr::Add &&
+      BE->getOpcode() != MCBinaryExpr::Sub)
+    return false;
+
+  // We are able to support the subtraction of two symbol references
+  if (BE->getOpcode() == MCBinaryExpr::Sub &&
+      isa<MCSymbolRefExpr>(BE->getRHS()))
+    return true;
+
+  // See if the addend is a constant, otherwise there's more going
+  // on here than we can deal with.
+  auto AddendExpr = dyn_cast<MCConstantExpr>(BE->getRHS());
+  if (!AddendExpr)
+    return false;
+
+  Addend = AddendExpr->getValue();
+  if (BE->getOpcode() == MCBinaryExpr::Sub)
+    Addend = -Addend;
+
+  // It's some symbol reference + a constant addend
+  return Kind != DLXMCExpr::VK_DLX_Invalid;
+}
+
 // Implementation of MatchAndEmitInstruction
 bool DLXAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode, OperandVector &Operands, MCStreamer &Out, uint64_t &ErrorInfo, bool MatchingInlineAsm) {
   // Utilize TableGen generated code to match instructions
   MCInst Inst;
-  unsigned Error;
-  MatchResultTy MatchResult = MatchInstructionImpl(Operands, Inst, Error, MatchingInlineAsm);
+  long unsigned err_info;
+  auto MatchResult = MatchInstructionImpl(Operands, Inst, err_info, MatchingInlineAsm);
 
   switch (MatchResult) {
     case Match_Success:
@@ -286,10 +333,10 @@ bool DLXAsmParser::ParseOperand(OperandVector &Operands, StringRef Mnemonic) {
     return false;
 
   // Attempt to parse token as an immediate
-  if (parseImmediate(Operands) == MatchOperand_Success) {
+  if (ParseImmediate(Operands) == MatchOperand_Success) {
     // Parse memory base register if present
     if (getLexer().is(AsmToken::LParen))
-      return parseMemOpBaseReg(Operands) != MatchOperand_Success;
+      return ParseMemOpBaseReg(Operands) != MatchOperand_Success;
     return false;
   }
 
@@ -298,22 +345,73 @@ bool DLXAsmParser::ParseOperand(OperandVector &Operands, StringRef Mnemonic) {
   return true;
 }
 
-// Implementation for specific operand types
-bool DLXAsmParser::ParseRegister(OperandVector &Operands) {
-  SMLoc S = Parser.getTok().getLoc();
-  SMLoc E = SMLoc::getFromPointer(Parser.getTok().getLoc().getPointer() -1);
-
-  switch(getLexer().getKind()) {
-    default: return 0;
-    case AsmToken::Identifier:
-      RegNo = MatchRegisterName(getLexer().getTok().getIdentifier());
-      if (RegNo == 0)
-        return 0;
-      getLexer().Lex();
-      Operands.push_back(DLXOperand::createReg(RegNo, S, E));
+bool
+DLXAsmParser::ParseMemOpBaseReg(OperandVector &Operands) {
+  if (getLexer().isNot(AsmToken::LParen)) {
+    Error(getLoc(), "expected '('");
+    return MatchOperand_ParseFail;
   }
-  return 0;
+
+  getParser().Lex(); // Eat '('
+  Operands.push_back(DLXOperand::createToken("(", getLoc()));
+
+  if (ParseRegister(Operands) != MatchOperand_Success) {
+    Error(getLoc(), "expected register");
+    return MatchOperand_ParseFail;
+  }
+
+  if (getLexer().isNot(AsmToken::RParen)) {
+    Error(getLoc(), "expected ')'");
+    return MatchOperand_ParseFail;
+  }
+
+  getParser().Lex(); // Eat ')'
+  Operands.push_back(DLXOperand::createToken(")", getLoc()));
+
+  return MatchOperand_Success;
 }
+
+// Attempts to match Name as a register (either using the default name or
+// alternative ABI names), setting RegNo to the matching register. Upon
+// failure, returns true and sets RegNo to 0. If IsRV32E then registers
+// x16-x31 will be rejected.
+static bool matchRegisterNameHelper(Register &RegNo,
+                                    StringRef Name) {
+  RegNo = MatchRegisterName(Name);
+
+  if (RegNo == DLX::NoRegister)
+    RegNo = MatchRegisterAltName(Name);
+
+  return RegNo == DLX::NoRegister;
+}
+
+// Implementation for specific operand types
+bool
+DLXAsmParser::ParseRegister(OperandVector &Operands) {
+  SMLoc FirstS = getLoc();
+  AsmToken LParen;
+
+  switch (getLexer().getKind()) {
+  default:
+    return MatchOperand_NoMatch;
+  case AsmToken::Identifier:
+    StringRef Name = getLexer().getTok().getIdentifier();
+    Register RegNo;
+    matchRegisterNameHelper(RegNo, Name);
+
+    if (RegNo == DLX::NoRegister) {
+      return MatchOperand_NoMatch;
+    }
+    SMLoc S = getLoc();
+    SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
+    getLexer().Lex();
+    Operands.push_back(DLXOperand::createReg(RegNo, S, E));
+  }
+
+  return MatchOperand_Success;
+}
+
+
 
 bool DLXAsmParser::ParseImmediate(OperandVector &Operands) {
   SMLoc S = getLoc();
@@ -342,29 +440,6 @@ bool DLXAsmParser::ParseImmediate(OperandVector &Operands) {
   return MatchOperand_Success;
 }
 
-OperandMatchResultTy
-DLXsmParser::parseMemOpBaseReg(OperandVector &Operands) {
-  if (getLexer().isNot(AsmToken::LParen)) {
-    Error(getLoc(), "expected '('");
-    return MatchOperand_ParseFail;
-  }
-
-  getParser().Lex(); // Eat '('
-
-  if (ParseRegister(Operands) != MatchOperand_Success) {
-    Error(getLoc(), "expected register");
-    return MatchOperand_ParseFail;
-  }
-
-  if (getLexer().isNot(AsmToken::RParen)) {
-    Error(getLoc(), "expected ')'");
-    return MatchOperand_ParseFail;
-  }
-
-  getParser().Lex(); // Eat ')'
-
-  return MatchOperand_Success;
-}
 
 // Error handling
 void DLXAsmParser::Error(SMLoc IDLoc, const Twine &Message) {
@@ -381,7 +456,7 @@ bool DLXAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name, 
     return false;
 
   // Parse first operand
-  if (parseOperand(Operands, Name))
+  if (ParseOperand(Operands, Name))
     return true;
 
   // Parse until end of statement, consuming commas between operands
@@ -391,7 +466,7 @@ bool DLXAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name, 
     getLexer().Lex();
 
     // Parse next operand
-    if (parseOperand(Operands, Name))
+    if (ParseOperand(Operands, Name))
       return true;
 
     ++OperandIdx;
@@ -400,7 +475,9 @@ bool DLXAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name, 
   if (getLexer().isNot(AsmToken::EndOfStatement)) {
     SMLoc Loc = getLexer().getLoc();
     getParser().eatToEndOfStatement();
-    return Error(Loc, "unexpected token");
+    Error(Loc, "unexpected token");
+    llvm_unreachable("Error");
+    return false;
   }
 
   getParser().Lex(); // Consume the EndOfStatement.

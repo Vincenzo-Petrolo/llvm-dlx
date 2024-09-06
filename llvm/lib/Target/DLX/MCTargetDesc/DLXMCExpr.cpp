@@ -28,6 +28,34 @@ void DLXMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   OS << ")";
 }
 
+bool DLXMCExpr::evaluateAsConstant(int64_t &Res) const {
+  MCValue Value;
+
+  if (Kind == VK_DLX_CALL)
+    return false;
+
+  if (!getSubExpr()->evaluateAsRelocatable(Value, nullptr, nullptr))
+    return false;
+
+  if (!Value.isAbsolute())
+    return false;
+
+  Res = evaluateAsInt64(Value.getConstant());
+  return true;
+}
+
+int64_t DLXMCExpr::evaluateAsInt64(int64_t Value) const {
+  switch (Kind) {
+  default:
+    llvm_unreachable("Invalid kind");
+  case VK_DLX_LO:
+    return SignExtend64<12>(Value);
+  case VK_DLX_HI:
+    // Add 1 if bit 11 is 1, to compensate for low 16 bits being negative.
+    return ((Value + 0x800) >> 16) & 0xffffff;
+  }
+}
+
 bool DLXMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
                                           const MCAsmLayout *Layout,
                                           const MCFixup *Fixup) const {
