@@ -9,7 +9,6 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCTargetOptions.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 
@@ -22,6 +21,7 @@ class DLXAsmParser : public MCTargetAsmParser {
 #define GET_ASSEMBLER_HEADER
 #include "DLXGenAsmMatcher.inc"
 
+public:
   // Constructor
   DLXAsmParser(const MCSubtargetInfo &sti, MCAsmParser &parser, const MCInstrInfo &MII, const MCTargetOptions &Options)
       : MCTargetAsmParser(Options, sti, MII), MII(MII), Parser(parser) {
@@ -39,6 +39,11 @@ class DLXAsmParser : public MCTargetAsmParser {
   bool ParseRegister(OperandVector &Operands);
   bool ParseImmediate(OperandVector &Operands);
   bool ParseMemOpBaseReg(OperandVector &Operands);
+
+  bool ParseRegister(unsigned &RegNo, SMLoc &StartLoc, SMLoc &EndLoc) override;
+  bool ParseDirective(AsmToken DirectiveID) override;
+
+  OperandMatchResultTy parseCallSymbol(OperandVector &Operands);
   SMLoc getLoc() const { return getParser().getTok().getLoc(); }
 
   // Error handling utility
@@ -48,6 +53,12 @@ class DLXAsmParser : public MCTargetAsmParser {
   bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name, SMLoc NameLoc, OperandVector &Operands) override;
 
 public:
+enum DLXMatchResultTy {
+    Match_Dummy = FIRST_TARGET_MATCH_RESULT_TY,
+#define GET_OPERAND_DIAGNOSTIC_TYPES
+#include "DLXGenAsmMatcher.inc"
+#undef GET_OPERAND_DIAGNOSTIC_TYPES
+  };
   static bool classifySymbolRef(const MCExpr *Expr,
                                 DLXMCExpr::VariantKind &Kind,
                                 int64_t &Addend);
@@ -160,6 +171,66 @@ public:
       IsValid = isInt<16>(Imm);
     return IsValid && ((IsConstantImm && VK == DLXMCExpr::VK_DLX_None) ||
                        VK == DLXMCExpr::VK_DLX_LO);
+  }
+
+  bool isUImm16() const {
+    DLXMCExpr::VariantKind VK = DLXMCExpr::VK_DLX_None;
+    int64_t Imm;
+    bool IsValid;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    if (!IsConstantImm)
+      IsValid = DLXAsmParser::classifySymbolRef(getImm(), VK, Imm);
+    else
+      IsValid = isUInt<16>(Imm);
+    return IsValid && ((IsConstantImm && VK == DLXMCExpr::VK_DLX_None) ||
+                       VK == DLXMCExpr::VK_DLX_LO);
+  }
+
+  bool isUImm32() const {
+    DLXMCExpr::VariantKind VK = DLXMCExpr::VK_DLX_None;
+    int64_t Imm;
+    bool IsValid;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    if (!IsConstantImm)
+      IsValid = DLXAsmParser::classifySymbolRef(getImm(), VK, Imm);
+    else
+      IsValid = isUInt<32>(Imm);
+    return IsValid && ((IsConstantImm && VK == DLXMCExpr::VK_DLX_None) ||
+                       VK == DLXMCExpr::VK_DLX_LO);
+  }
+
+  bool isSImm32() const {
+    DLXMCExpr::VariantKind VK = DLXMCExpr::VK_DLX_None;
+    int64_t Imm;
+    bool IsValid;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    if (!IsConstantImm)
+      IsValid = DLXAsmParser::classifySymbolRef(getImm(), VK, Imm);
+    else
+      IsValid = isInt<32>(Imm);
+    return IsValid && ((IsConstantImm && VK == DLXMCExpr::VK_DLX_None) ||
+                       VK == DLXMCExpr::VK_DLX_LO);
+  }
+
+  bool isSImm26() const {
+    DLXMCExpr::VariantKind VK = DLXMCExpr::VK_DLX_None;
+    int64_t Imm;
+    bool IsValid;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    if (!IsConstantImm)
+      IsValid = DLXAsmParser::classifySymbolRef(getImm(), VK, Imm);
+    else
+      IsValid = isInt<26>(Imm);
+    return IsValid && ((IsConstantImm && VK == DLXMCExpr::VK_DLX_None) ||
+                       VK == DLXMCExpr::VK_DLX_CALL);
   }
 
   /// getStartLoc - Gets location of the first token of this operand
@@ -298,6 +369,35 @@ bool DLXAsmParser::classifySymbolRef(const MCExpr *Expr,
   return Kind != DLXMCExpr::VK_DLX_Invalid;
 }
 
+
+OperandMatchResultTy
+DLXAsmParser::parseCallSymbol(OperandVector &Operands) {
+  SMLoc S = getLoc();
+  SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
+  const MCExpr *Res;
+
+  if (getLexer().getKind() != AsmToken::Identifier)
+    return MatchOperand_NoMatch;
+
+  // Avoid parsing the register in `call rd, foo` as a call symbol.
+  if (getLexer().peekTok().getKind() != AsmToken::EndOfStatement)
+    return MatchOperand_NoMatch;
+
+  StringRef Identifier;
+  if (getParser().parseIdentifier(Identifier))
+    return MatchOperand_ParseFail;
+
+  DLXMCExpr::VariantKind Kind = DLXMCExpr::VK_DLX_CALL;
+  if (Identifier.consume_back("@plt"))
+    llvm_unreachable("No PLT!!");
+
+  MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
+  Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
+  Res = DLXMCExpr::create(Res, Kind, getContext());
+  Operands.push_back(DLXOperand::createImm(Res, S, E));
+  return MatchOperand_Success;
+}
+
 // Implementation of MatchAndEmitInstruction
 bool DLXAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode, OperandVector &Operands, MCStreamer &Out, uint64_t &ErrorInfo, bool MatchingInlineAsm) {
   // Utilize TableGen generated code to match instructions
@@ -412,6 +512,26 @@ DLXAsmParser::ParseRegister(OperandVector &Operands) {
 }
 
 
+bool DLXAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
+                                  SMLoc &EndLoc) {
+  const AsmToken &Tok = getParser().getTok();
+  StartLoc = Tok.getLoc();
+  EndLoc = Tok.getEndLoc();
+  RegNo = 0;
+  StringRef Name = getLexer().getTok().getIdentifier();
+
+  if (matchRegisterNameHelper((Register&)RegNo, Name))
+    Error(StartLoc, "invalid register name");
+
+  getParser().Lex(); // Eat identifier token.
+  return false;
+}
+
+bool DLXAsmParser::ParseDirective(AsmToken DirectiveID) {
+  llvm_unreachable("No directives supported yet!");
+
+  return true;
+}
 
 bool DLXAsmParser::ParseImmediate(OperandVector &Operands) {
   SMLoc S = getLoc();
