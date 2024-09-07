@@ -25,14 +25,25 @@ class MCAssembler;
 struct MCFixupKindInfo;
 class Target;
 class MCObjectWriter;
+class MCTargetOptions;
 
 class DLXAsmBackend : public MCAsmBackend {
   Triple TheTriple;
+  const MCSubtargetInfo &STI;
+  uint8_t OSABI;
+  bool ForceRelocs = false;
+  const MCTargetOptions &TargetOptions;
+  //todo DLXABI::ABI TargetABI = RISCVABI::ABI_Unknown; todo
 
 public:
-  DLXAsmBackend(const Target &T, const Triple &TT)
-      : MCAsmBackend(TT.isLittleEndian() ? support::little : support::big),
-        TheTriple(TT) {}
+  DLXAsmBackend(const MCSubtargetInfo &STI, uint8_t OSABI,
+                  const MCTargetOptions &Options)
+      : MCAsmBackend(support::little), STI(STI), OSABI(OSABI),
+        TargetOptions(Options) {
+    //todo TargetABI = DLXABI::computeTargetABI(STI.getTargetTriple(), STI.getFeatureBits(), Options.getABIName()); todo
+    //todo DLXFeatures::validate(STI.getTargetTriple(), STI.getFeatureBits());
+  }
+  ~DLXAsmBackend() override {}
 
   std::unique_ptr<MCObjectTargetWriter>
   createObjectTargetWriter() const override;

@@ -154,8 +154,10 @@ bool LLVMTargetMachine::addAsmPrinter(PassManagerBase &PM,
     MCCodeEmitter *MCE = getTarget().createMCCodeEmitter(MII, MRI, Context);
     MCAsmBackend *MAB =
         getTarget().createMCAsmBackend(STI, MRI, Options.MCOptions);
-    if (!MCE || !MAB)
+    if (!MCE || !MAB) {
+      llvm::errs() << "addAsmPrinter 159\n";
       return true;
+    }
 
     // Don't waste memory on names of temp labels.
     Context.setUseNamesOnTempLabels(false);
@@ -180,8 +182,10 @@ bool LLVMTargetMachine::addAsmPrinter(PassManagerBase &PM,
   // Create the AsmPrinter, which takes ownership of AsmStreamer if successful.
   FunctionPass *Printer =
       getTarget().createAsmPrinter(*this, std::move(AsmStreamer));
-  if (!Printer)
+  if (!Printer) {
+    llvm::errs() << "addAsmPrinter 186\n";
     return true;
+  }
 
   PM.add(Printer);
   return false;
@@ -199,6 +203,8 @@ bool LLVMTargetMachine::addPassesToEmitFile(
   if (!PassConfig)
     return true;
 
+  llvm::errs() << "202\n";
+
   if (!TargetPassConfig::willCompleteCodeGenPipeline()) {
     if (this->getTargetTriple().isOSAIX()) {
       // On AIX, we might manifest MCSymbols during SDAG lowering. For MIR
@@ -211,8 +217,11 @@ bool LLVMTargetMachine::addPassesToEmitFile(
     }
     PM.add(createPrintMIRPass(Out));
   } else if (addAsmPrinter(PM, Out, DwoOut, FileType,
-                           MMIWP->getMMI().getContext()))
-    return true;
+                           MMIWP->getMMI().getContext())) {
+      llvm::errs() << "218\n";
+
+      return true;
+    }
 
   PM.add(createFreeMachineFunctionPass());
   return false;

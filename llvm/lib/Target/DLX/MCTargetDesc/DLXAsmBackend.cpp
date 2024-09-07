@@ -85,13 +85,35 @@ const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
 }
 
 // MCAsmBackend
-MCAsmBackend *createDLXAsmBackend(const Target &T,
-                                         const MCSubtargetInfo &STI,
-                                         const MCRegisterInfo &MRI,
-                                         const MCTargetOptions &Options) {
-  return new DLXAsmBackend(T, STI.getTargetTriple());
+MCAsmBackend *llvm::createDLXAsmBackend(const Target &T,
+                                          const MCSubtargetInfo &STI,
+                                          const MCRegisterInfo &MRI,
+                                          const MCTargetOptions &Options) {
+  const Triple &TT = STI.getTargetTriple();
+  uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TT.getOS());
+  return new DLXAsmBackend(STI, OSABI, Options);
 }
 
-void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI, MCInst &Res) {
+std::unique_ptr<MCObjectTargetWriter>
+DLXAsmBackend::createObjectTargetWriter() const {
+  return createDLXELFObjectWriter(OSABI, false);
+}
+
+void DLXAsmBackend::relaxInstruction(const MCInst &Inst,
+                                       const MCSubtargetInfo &STI,
+                                       MCInst &Res) const {
   llvm_unreachable("RelaxInstruction() unimplemented");
+}
+
+bool DLXAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
+  unsigned MinNopLen = 4;
+
+  if ((Count % MinNopLen) != 0)
+    return false;
+
+  // The canonical nop on DLX is addi x0, x0, 0.
+  for (; Count >= 4; Count -= 4)
+    OS.write("\x13\0\0\0", 4);
+
+  return true;
 }

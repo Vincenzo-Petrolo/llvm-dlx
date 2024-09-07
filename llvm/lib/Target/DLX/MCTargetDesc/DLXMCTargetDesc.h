@@ -19,6 +19,7 @@
 namespace llvm {
 class MCAsmBackend;
 class MCCodeEmitter;
+class MCTargetOptions;
 class MCContext;
 class MCInstrInfo;
 class MCObjectTargetWriter;
@@ -33,6 +34,15 @@ class raw_pwrite_stream;
 MCCodeEmitter *createDLXMCCodeEmitter(const MCInstrInfo &MCII,
                                         const MCRegisterInfo &MRI,
                                         MCContext &Ctx);
+
+MCAsmBackend *createDLXAsmBackend(const Target &T,
+                                         const MCSubtargetInfo &STI,
+                                         const MCRegisterInfo &MRI,
+                                         const MCTargetOptions &Options);
+std::unique_ptr<MCObjectTargetWriter> createDLXELFObjectWriter(
+                                        uint8_t OSABI,
+                                        bool Is64Bit
+);
 
 }
 

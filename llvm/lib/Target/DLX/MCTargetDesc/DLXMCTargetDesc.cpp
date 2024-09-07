@@ -84,10 +84,13 @@ createDLXObjectTargetStreamer(MCStreamer &S, const MCSubtargetInfo &STI) {
   return nullptr;
 }
 
-extern "C" void LLVMInitializeDLXTargetMC() {
+extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeDLXTargetMC() {
   for (Target *T : {&getTheDLXTarget()}) {
     // Register the MC asm info.
     TargetRegistry::RegisterMCAsmInfo(*T, createDLXMCAsmInfo);
+
+    // Register the Asm Backend
+    TargetRegistry::RegisterMCAsmBackend(*T, createDLXAsmBackend);
 
     // Register the MC instruction info.
     TargetRegistry::RegisterMCInstrInfo(*T, createDLXMCInstrInfo);
