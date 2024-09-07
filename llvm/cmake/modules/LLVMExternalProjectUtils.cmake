@@ -238,6 +238,7 @@ function(llvm_ExternalProject_Add name source_dir)
                -DLLVM_SOURCE_PREFIX=${LLVM_SOURCE_PREFIX}
                -DPACKAGE_VERSION=${PACKAGE_VERSION}
                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+               -DCMAKE_C_FLAGS=-integrated-as # Use clang integrated assembler
                -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
                -DCMAKE_EXPORT_COMPILE_COMMANDS=1
                ${cmake_args}
