@@ -179,7 +179,6 @@ DLXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
 }
 
 unsigned DLXMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
-
                                            SmallVectorImpl<MCFixup> &Fixups,
                                            const MCSubtargetInfo &STI) const {
   const MCOperand &MO = MI.getOperand(OpNo);
@@ -212,17 +211,27 @@ unsigned DLXMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
       FixupKind = DLX::fixup_DLX_HI16;
       break;
     default:
+      // Print the fixup kind
+      llvm::errs() << "Fixup kind: " << RVExpr->getKind() << "\n";
       llvm_unreachable("Unhandled fixup kind!");
       break;
     }
-  } else if (Kind == MCExpr::SymbolRef &&
-             cast<MCSymbolRefExpr>(Expr)->getKind() == MCSymbolRefExpr::VK_None) {
-    if (Desc.getOpcode() == DLX::JAL) {
+  } else if (Kind == MCExpr::SymbolRef && cast<MCSymbolRefExpr>(Expr)->getKind() == MCSymbolRefExpr::VK_None) {
+    if (Desc.getOpcode() == DLX::JAL || Desc.getOpcode() == DLX::J) {
       FixupKind = DLX::fixup_DLX_JAL_PC26;
-    }  
+    } else if (Desc.getOpcode() == DLX::BEQZ || Desc.getOpcode() == DLX::BNEZ) {
+      FixupKind = DLX::fixup_DLX_BR_PC16;
+    } else if (Desc.getOpcode() == DLX::LHI) {
+      FixupKind = DLX::fixup_DLX_HI16;
+    } else if (Desc.getOpcode() == DLX::ORI) {
+      FixupKind = DLX::fixup_DLX_LO16;
     }
+  }
   
   if (FixupKind == -1) {
+    llvm::errs() << "Kind: " << Kind << "\n";
+    llvm::errs() << "VK: " << cast<MCSymbolRefExpr>(Expr)->getKind() << "\n";
+    llvm::errs() << "Opcode: " << Desc.getOpcode() << "\n";
     llvm_unreachable("Unhandled fixup kind!");
   }
 

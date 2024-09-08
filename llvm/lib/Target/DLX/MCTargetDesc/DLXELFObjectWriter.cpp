@@ -59,6 +59,8 @@ unsigned DLXELFObjectWriter::getRelocType(MCContext &Ctx,
       return ELF::R_DLX_NONE;
     case DLX::fixup_DLX_JAL_PC26:
       return ELF::R_DLX_JAL_PC26;
+    case DLX::fixup_DLX_BR_PC16:
+      return ELF::R_DLX_BR_PC16;
     }
   }
 
@@ -76,6 +78,10 @@ unsigned DLXELFObjectWriter::getRelocType(MCContext &Ctx,
     return ELF::R_DLX_32;
   case FK_Data_8:
     return ELF::R_DLX_64;
+  case DLX::fixup_DLX_LO16:
+    return ELF::R_DLX_LO16;
+  case DLX::fixup_DLX_HI16:
+    return ELF::R_DLX_HI16;
   }
 }
 

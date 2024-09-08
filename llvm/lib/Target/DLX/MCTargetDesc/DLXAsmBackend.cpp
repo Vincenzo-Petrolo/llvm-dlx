@@ -57,6 +57,12 @@ void DLXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
     Mask = 0x03FFFFFF;
     Value &= Mask; // Mask to get the 26-bit field
     break;
+  
+  case DLX::fixup_DLX_BR_PC16:
+    Value >>= 2; // Convert to word-aligned address for 16-bit offset
+    Mask = 0xFFFF;
+    Value &= Mask; // Mask to get the 16-bit field
+    break;
 
   default:
     llvm_unreachable("Unknown fixup kind!");
@@ -73,12 +79,15 @@ const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
         // Name, Offset, Bits, Flags
         { "fixup_DLX_LO16", 0, 16, 0 }, // Lower 16 bits
         { "fixup_DLX_HI16", 0, 16, 0 }, // Higher 16 bits
-        { "fixup_DLX_JAL_PC26", 0, 26, MCFixupKindInfo::FKF_IsPCRel } // 26-bit PC-relative
+        { "fixup_DLX_JAL_PC26", 0, 26, MCFixupKindInfo::FKF_IsPCRel }, // 26-bit PC-relative
+        { "fixup_DLX_BR_PC16", 0, 16, MCFixupKindInfo::FKF_IsPCRel } // 16-bit PC-relative
     };
 
-    if (Kind >= DLX::FirstTargetFixupKind && Kind < DLX::NumTargetFixupKinds) {
-        return Infos[Kind - DLX::FirstTargetFixupKind];
+    if (Kind >= DLX::fixup_DLX_first && Kind < DLX::fixup_DLX_invalid) {
+        return Infos[Kind - DLX::fixup_DLX_first];
     }
+
+    llvm::errs() << "FK Kind: " << Kind << "\n";
 
     // Default case for standard fixups
     return MCAsmBackend::getFixupKindInfo(Kind);
