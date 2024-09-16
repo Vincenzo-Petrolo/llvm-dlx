@@ -47,7 +47,6 @@ BitVector DLXRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   markSuperRegs(Reserved, DLX::R0); // zero
   markSuperRegs(Reserved, DLX::R2); // sp
   markSuperRegs(Reserved, DLX::R3); // gp
-  markSuperRegs(Reserved, DLX::R4); // tp
 
   return Reserved;
 }

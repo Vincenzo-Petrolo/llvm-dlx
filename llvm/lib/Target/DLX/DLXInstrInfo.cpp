@@ -102,10 +102,11 @@ void DLXInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 
   Opcode = DLX::SW;
 
-  //todo getKillRegState is hardcoded to false to avoid an error
-  // where a register is killed before it is used
+  if (IsKill)
+    llvm::errs() << "isKill is true on "<< SrcReg <<"\n";
+
   BuildMI(MBB, I, DL, get(Opcode))
-      .addReg(SrcReg, getKillRegState(false))
+      .addReg(SrcReg, getKillRegState(IsKill))
       .addFrameIndex(FI)
       .addImm(0);
 }

@@ -25,11 +25,68 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/ADT/ArrayRef.h"
 #include <cassert>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dlx-isellower"
+
+static bool DLXHandleI64(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
+                         CCValAssign::LocInfo &LocInfo, ISD::ArgFlagsTy &ArgFlags,
+                         CCState &State) {
+  // Split the i64 or f64 into two i32 values
+  static const MCPhysReg RegList[] = {
+    DLX::R10, DLX::R11, DLX::R12, DLX::R13,
+    DLX::R14, DLX::R15, DLX::R16, DLX::R17
+  };
+
+  ArrayRef<MCPhysReg> Regs(RegList);
+
+  // Allocate first register
+  if (unsigned RegLo = State.AllocateReg(Regs)) {
+    // Allocate second register
+    if (unsigned RegHi = State.AllocateReg(Regs)) {
+      State.addLoc(CCValAssign::getReg(ValNo, ValVT, RegLo, MVT::i32, LocInfo));
+      // Increment ValNo for the second half of the value
+      unsigned ValNoHi = ValNo + 1;
+      State.addLoc(CCValAssign::getReg(ValNoHi, ValVT, RegHi, MVT::i32, LocInfo));
+      return false;
+    }
+  }
+
+  // If not enough registers, assign to stack
+  unsigned Offset = State.AllocateStack(8, 4);
+  State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
+  return false;
+}
+
+static bool DLXHandleI64Ret(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
+                            CCValAssign::LocInfo &LocInfo, ISD::ArgFlagsTy &ArgFlags,
+                            CCState &State) {
+  // Split the i64 or f64 into two i32 values
+  static const MCPhysReg RegList[] = { DLX::R10, DLX::R11 };
+
+  ArrayRef<MCPhysReg> Regs(RegList);
+
+  // Allocate first register
+  if (unsigned RegLo = State.AllocateReg(Regs)) {
+    // Allocate second register
+    if (unsigned RegHi = State.AllocateReg(Regs)) {
+      State.addLoc(CCValAssign::getReg(ValNo, ValVT, RegLo, MVT::i32, LocInfo));
+      // Increment ValNo for the second half of the value
+      unsigned ValNoHi = ValNo + 1;
+      State.addLoc(CCValAssign::getReg(ValNoHi, ValVT, RegHi, MVT::i32, LocInfo));
+      return false;
+    }
+  }
+
+  // If not enough registers, assign to stack
+  unsigned Offset = State.AllocateStack(8, 4);
+  State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
+  return false;
+}
+
 
 #include "DLXGenCallingConv.inc"
 
@@ -159,8 +216,6 @@ static const MCPhysReg GPRArgRegs[] = {
   DLX::R0, DLX::R1, DLX::R2, DLX::R3
 };
 
-/// LowerFormalArguments - transform physical registers into virtual registers
-/// and generate load operations for arguments places on the stack.
 SDValue DLXTargetLowering::LowerFormalArguments(
     SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &dl, SelectionDAG &DAG,
@@ -178,41 +233,71 @@ SDValue DLXTargetLowering::LowerFormalArguments(
                  *DAG.getContext());
   CCInfo.AnalyzeFormalArguments(Ins, DLX_CCallingConv);
 
-  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
+  // Process each argument location assignment.
+  for (unsigned i = 0; i < ArgLocs.size(); ++i) {
     CCValAssign &VA = ArgLocs[i];
     EVT ValVT = VA.getValVT();
-    SDValue ArgValue;
 
     if (VA.isRegLoc()) {
       // Argument is passed in a register
-      EVT RegVT = VA.getLocVT();
       unsigned Reg = MF.addLiveIn(VA.getLocReg(), &DLX::GPRRegClass);
-      ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, RegVT);
+      SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getLocVT());
 
-      // Handle any needed conversions.
-      if (VA.getLocInfo() == CCValAssign::SExt) {
-        ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
-                               DAG.getValueType(ValVT));
-        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
-      } else if (VA.getLocInfo() == CCValAssign::ZExt) {
-        ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
-                               DAG.getValueType(ValVT));
-        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
-      } else if (VA.getLocInfo() == CCValAssign::AExt) {
-        ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
+      if (VA.needsCustom()) {
+        // The argument has been split into multiple parts
+        // Collect all parts and reconstruct the original value
+        SmallVector<SDValue, 2> Parts;
+        Parts.push_back(ArgValue);
+
+        // Collect subsequent parts
+        while (i + 1 < ArgLocs.size() && ArgLocs[i + 1].getValNo() == VA.getValNo()) {
+          ++i;
+          CCValAssign &NextVA = ArgLocs[i];
+          unsigned NextReg = MF.addLiveIn(NextVA.getLocReg(), &DLX::GPRRegClass);
+          SDValue NextArgValue = DAG.getCopyFromReg(Chain, dl, NextReg, NextVA.getLocVT());
+          Parts.push_back(NextArgValue);
+        }
+
+        // Combine parts into the original value
+        SDValue CombinedValue;
+        if (Parts.size() == 2) {
+          // Combine two parts into a single value
+          CombinedValue = DAG.getNode(ISD::BUILD_PAIR, dl, ValVT, Parts[0], Parts[1]);
+        } else {
+          // Handle more than two parts if necessary
+          llvm_unreachable("Unsupported number of parts for split argument");
+        }
+
+        InVals.push_back(CombinedValue);
+      } else {
+        // Handle any needed conversions.
+        if (VA.getLocInfo() == CCValAssign::SExt) {
+          ArgValue = DAG.getNode(ISD::AssertSext, dl, VA.getLocVT(), ArgValue,
+                                 DAG.getValueType(ValVT));
+          ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
+        } else if (VA.getLocInfo() == CCValAssign::ZExt) {
+          ArgValue = DAG.getNode(ISD::AssertZext, dl, VA.getLocVT(), ArgValue,
+                                 DAG.getValueType(ValVT));
+          ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
+        } else if (VA.getLocInfo() == CCValAssign::AExt) {
+          ArgValue = DAG.getNode(ISD::TRUNCATE, dl, ValVT, ArgValue);
+        } else if (VA.getLocInfo() == CCValAssign::Full) {
+          // No action needed
+        } else {
+          llvm_unreachable("Unknown loc info!");
+        }
+
+        InVals.push_back(ArgValue);
       }
-
-      InVals.push_back(ArgValue);
-
     } else if (VA.isMemLoc()) {
       // Argument is passed on the stack
-      int FI = MFI.CreateFixedObject(ValVT.getSizeInBits() / 8, VA.getLocMemOffset(),
+      int FI = MFI.CreateFixedObject(VA.getValVT().getSizeInBits() / 8, VA.getLocMemOffset(),
                                      true);
       SDValue FIN = DAG.getFrameIndex(FI, MVT::i32);
-      ArgValue = DAG.getLoad(ValVT, dl, Chain, FIN,
-                             MachinePointerInfo::getFixedStack(MF, FI));
+      SDValue Load = DAG.getLoad(VA.getValVT(), dl, Chain, FIN,
+                                 MachinePointerInfo::getFixedStack(MF, FI));
 
-      InVals.push_back(ArgValue);
+      InVals.push_back(Load);
     } else {
       llvm_unreachable("Unknown argument location");
     }
@@ -220,7 +305,6 @@ SDValue DLXTargetLowering::LowerFormalArguments(
 
   return Chain;
 }
-
 
 //===----------------------------------------------------------------------===//
 //@              Return Value Calling Convention Implementation
@@ -299,19 +383,19 @@ DLXTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
 
 SDValue 
 DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
-                                     SmallVectorImpl<SDValue> &InVals) const {
+                             SmallVectorImpl<SDValue> &InVals) const {
   SelectionDAG &DAG = CLI.DAG;
   SDLoc &dl = CLI.DL;
   SDValue Chain = CLI.Chain;
   SDValue Callee = CLI.Callee;
   CallingConv::ID CallConv = CLI.CallConv;
   bool IsVarArg = CLI.IsVarArg;
-  
+
   // Analyze the operands of the call, assigning locations to each operand
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), ArgLocs, *DAG.getContext());
 
-  // Assuming DLX has a custom calling convention, DLXCC
+  // Use your custom calling convention
   CCInfo.AnalyzeCallOperands(CLI.Outs, DLX_CCallingConv);
 
   // Prepare the call sequence
@@ -320,13 +404,37 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   Ops.push_back(Callee);
 
   // Assign locations to arguments and pass them
-  for (unsigned i = 0; i != CLI.Outs.size(); ++i) {
-    SDValue Arg = CLI.OutVals[i];
+  for (unsigned i = 0; i < ArgLocs.size(); ++i) {
     CCValAssign &VA = ArgLocs[i];
-    
+    SDValue Arg = CLI.OutVals[VA.getValNo()];
+
     if (VA.isRegLoc()) {
-      Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Arg, SDValue());
-      Ops.push_back(DAG.getRegister(VA.getLocReg(), Arg.getValueType()));
+      // Check if the argument has been split into multiple parts
+      if (VA.needsCustom()) {
+        // Split the argument into two i32 values
+        SDValue Lo = DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i32, Arg,
+                                 DAG.getConstant(0, dl, MVT::i32));
+        SDValue Hi = DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i32, Arg,
+                                 DAG.getConstant(1, dl, MVT::i32));
+
+        // Copy the lower part to the first register
+        Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Lo, Chain.getValue(1));
+        Ops.push_back(DAG.getRegister(VA.getLocReg(), MVT::i32));
+
+        // Get the next CCValAssign for the higher part
+        ++i;
+        assert(i < ArgLocs.size() && "Missing location for upper part of split argument");
+        CCValAssign &NextVA = ArgLocs[i];
+        assert(NextVA.isRegLoc() && "Upper part of split argument not in register");
+
+        // Copy the higher part to the second register
+        Chain = DAG.getCopyToReg(Chain, dl, NextVA.getLocReg(), Hi, Chain.getValue(1));
+        Ops.push_back(DAG.getRegister(NextVA.getLocReg(), MVT::i32));
+      } else {
+        // Single register argument
+        Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Arg, Chain.getValue(1));
+        Ops.push_back(DAG.getRegister(VA.getLocReg(), Arg.getValueType()));
+      }
     } else {
       // Memory location
       SDValue PtrOff = DAG.getIntPtrConstant(VA.getLocMemOffset(), dl);
@@ -346,9 +454,41 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     CCState RVInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs, *DAG.getContext());
     RVInfo.AnalyzeCallResult(CLI.Ins, DLX_CRetConv);
 
-    for (unsigned i = 0; i != RVLocs.size(); ++i) {
-      SDValue RV = DAG.getCopyFromReg(Chain, dl, RVLocs[i].getLocReg(), RVLocs[i].getValVT());
-      InVals.push_back(RV);
+    for (unsigned i = 0; i < RVLocs.size(); ++i) {
+      CCValAssign &VA = RVLocs[i];
+
+      if (VA.isRegLoc()) {
+        if (VA.needsCustom()) {
+          // The return value is split into two i32 registers
+          unsigned RegLo = VA.getLocReg();
+
+          ++i;
+          assert(i < RVLocs.size() && "Missing location for upper part of split return value");
+          CCValAssign &NextVA = RVLocs[i];
+          unsigned RegHi = NextVA.getLocReg();
+
+          // Copy from the registers
+          SDValue Lo = DAG.getCopyFromReg(Chain, dl, RegLo, MVT::i32);
+          SDValue Hi = DAG.getCopyFromReg(Chain, dl, RegHi, MVT::i32);
+
+          // Combine the parts into the full return value
+          SDValue RetValue = DAG.getNode(ISD::BUILD_PAIR, dl, VA.getValVT(), Lo, Hi);
+          InVals.push_back(RetValue);
+        } else {
+          // Single register return value
+          SDValue RV = DAG.getCopyFromReg(Chain, dl, VA.getLocReg(), VA.getValVT());
+          InVals.push_back(RV);
+        }
+      } else if (VA.isMemLoc()) {
+        // Handle memory return values if necessary
+        // Load the value from the stack
+        unsigned Offset = VA.getLocMemOffset();
+        SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, DLX::R2, MVT::i32);
+        SDValue Addr = DAG.getNode(ISD::ADD, dl, MVT::i32,
+                                   StackPtr, DAG.getIntPtrConstant(Offset, dl));
+        SDValue Load = DAG.getLoad(VA.getValVT(), dl, Chain, Addr, MachinePointerInfo());
+        InVals.push_back(Load);
+      }
     }
   }
 
