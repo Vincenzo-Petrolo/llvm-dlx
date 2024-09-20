@@ -545,11 +545,13 @@ static void insertCSRSaves(MachineBasicBlock &SaveBlock,
       unsigned Reg = CS.getReg();
 
       if (CS.isSpilledToReg()) {
+        llvm::errs() << "BuildMI " << TRI->getName(Reg) << " to stack with kill=true\n";
         BuildMI(SaveBlock, I, DebugLoc(),
                 TII.get(TargetOpcode::COPY), CS.getDstReg())
           .addReg(Reg, getKillRegState(true));
       } else {
         const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
+        llvm::errs() << "Spilling " << TRI->getName(Reg) << " to stack with kill=true\n";
         TII.storeRegToStackSlot(SaveBlock, I, Reg, true, CS.getFrameIdx(), RC,
                                 TRI);
       }

@@ -240,6 +240,7 @@ INITIALIZE_PASS(RegAllocFast, "regallocfast", "Fast Register Allocator", false,
                 false)
 
 void RegAllocFast::setPhysRegState(MCPhysReg PhysReg, unsigned NewState) {
+  llvm::errs() << "setPhysRegState: " << PhysReg << " " << NewState << '\n';
   PhysRegState[PhysReg] = NewState;
 }
 
@@ -320,6 +321,8 @@ void RegAllocFast::spill(MachineBasicBlock::iterator Before, Register VirtReg,
   LLVM_DEBUG(dbgs() << " to stack slot #" << FI << '\n');
 
   const TargetRegisterClass &RC = *MRI->getRegClass(VirtReg);
+  llvm::errs() << "Spilling " << printReg(VirtReg, TRI) << " in "
+               << printReg(AssignedReg, TRI) << " to stack slot #" << FI << "with kill: " << Kill <<'\n';
   TII->storeRegToStackSlot(*MBB, Before, AssignedReg, Kill, FI, &RC, TRI);
   ++NumStores;
 
@@ -472,6 +475,7 @@ void RegAllocFast::usePhysReg(MachineOperand &MO) {
   default:
     // The physreg was allocated to a virtual register. That means the value we
     // wanted has been clobbered.
+    llvm:errs() << "PhysRegister: " << PhysReg << "State: " << PhysRegState[PhysReg] << '\n';
     llvm_unreachable("Instruction uses an allocated register");
   }
 
@@ -615,6 +619,7 @@ void RegAllocFast::assignVirtToPhysReg(LiveReg &LR, MCPhysReg PhysReg) {
   assert(LR.PhysReg == 0 && "Already assigned a physreg");
   assert(PhysReg != 0 && "Trying to assign no register");
   LR.PhysReg = PhysReg;
+  llvm::errs() << "assignVirtToPhysReg: " << PhysReg << " " << VirtReg << '\n';
   setPhysRegState(PhysReg, VirtReg);
 }
 
@@ -680,6 +685,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0) {
                         << '\n');
       if (Cost)
         definePhysReg(MI, Hint0, regFree);
+      llvm::errs() << "Taking Hint0: "<< Hint0 <<"\n";
       assignVirtToPhysReg(LR, Hint0);
       return;
     } else {
@@ -701,6 +707,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0) {
                         << '\n');
       if (Cost)
         definePhysReg(MI, Hint1, regFree);
+      llvm::errs() << "Taking Hint1: "<< Hint0 <<"\n";
       assignVirtToPhysReg(LR, Hint1);
       return;
     } else {
@@ -720,6 +727,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0) {
     LLVM_DEBUG(dbgs() << "Cost: " << Cost << " BestCost: " << BestCost << '\n');
     // Immediate take a register with cost 0.
     if (Cost == 0) {
+      llvm::errs() << "Cost 0, why?...\n";
       assignVirtToPhysReg(LR, PhysReg);
       return;
     }
@@ -736,6 +744,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0) {
   if (!BestReg) {
     // Nothing we can do: Report an error and keep going with an invalid
     // allocation.
+    llvm::errs() << "Error occurred out of registers...\n";
     if (MI.isInlineAsm())
       MI.emitError("inline assembly requires more registers than available");
     else
@@ -744,6 +753,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0) {
     assignVirtToPhysReg(LR, *AllocationOrder.begin());
     return;
   }
+  llvm::errs() << "No hints taken, using BestReg: "<< BestReg <<"\n";
 
   definePhysReg(MI, BestReg, regFree);
   assignVirtToPhysReg(LR, BestReg);
@@ -1061,6 +1071,7 @@ void RegAllocFast::allocateInstruction(MachineInstr &MI) {
     }
     if (!MRI->isAllocatable(Reg)) continue;
     if (MO.isUse()) {
+      MI.print(llvm::errs());
       usePhysReg(MO);
     } else if (MO.isEarlyClobber()) {
       definePhysReg(MI, Reg,

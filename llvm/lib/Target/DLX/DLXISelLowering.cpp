@@ -51,14 +51,14 @@ static bool DLXHandleI64(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
       // Increment ValNo for the second half of the value
       unsigned ValNoHi = ValNo + 1;
       State.addLoc(CCValAssign::getReg(ValNoHi, ValVT, RegHi, MVT::i32, LocInfo));
-      return false;
+      return true;
     }
   }
 
   // If not enough registers, assign to stack
   unsigned Offset = State.AllocateStack(8, 4);
   State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
-  return false;
+  return true;
 }
 
 static bool DLXHandleI64Ret(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
@@ -73,18 +73,21 @@ static bool DLXHandleI64Ret(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
   if (unsigned RegLo = State.AllocateReg(Regs)) {
     // Allocate second register
     if (unsigned RegHi = State.AllocateReg(Regs)) {
+      // Assign lower 32 bits to RegLo
       State.addLoc(CCValAssign::getReg(ValNo, ValVT, RegLo, MVT::i32, LocInfo));
-      // Increment ValNo for the second half of the value
+      
+      // Assign higher 32 bits to RegHi
       unsigned ValNoHi = ValNo + 1;
       State.addLoc(CCValAssign::getReg(ValNoHi, ValVT, RegHi, MVT::i32, LocInfo));
-      return false;
+      
+      return true; // Indicate that the handler has successfully handled the assignment
     }
   }
 
-  // If not enough registers, assign to stack
-  unsigned Offset = State.AllocateStack(8, 4);
-  State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
-  return false;
+  // If not enough registers, fail
+  llvm_unreachable("Return value could not be split into two registers");
+  
+  return false; // Indicate that the handler did not handle the assignment
 }
 
 
@@ -391,6 +394,8 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   CallingConv::ID CallConv = CLI.CallConv;
   bool IsVarArg = CLI.IsVarArg;
 
+  llvm::errs() << "LowerCall\n";
+
   // Analyze the operands of the call, assigning locations to each operand
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), ArgLocs, *DAG.getContext());
@@ -403,13 +408,14 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   Ops.push_back(Chain);
   Ops.push_back(Callee);
 
+  SDValue InFlag;
+
   // Assign locations to arguments and pass them
   for (unsigned i = 0; i < ArgLocs.size(); ++i) {
     CCValAssign &VA = ArgLocs[i];
     SDValue Arg = CLI.OutVals[VA.getValNo()];
 
     if (VA.isRegLoc()) {
-      // Check if the argument has been split into multiple parts
       if (VA.needsCustom()) {
         // Split the argument into two i32 values
         SDValue Lo = DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i32, Arg,
@@ -418,7 +424,8 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                                  DAG.getConstant(1, dl, MVT::i32));
 
         // Copy the lower part to the first register
-        Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Lo, Chain.getValue(1));
+        Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Lo, InFlag);
+        InFlag = Chain.getValue(1);
         Ops.push_back(DAG.getRegister(VA.getLocReg(), MVT::i32));
 
         // Get the next CCValAssign for the higher part
@@ -428,11 +435,13 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
         assert(NextVA.isRegLoc() && "Upper part of split argument not in register");
 
         // Copy the higher part to the second register
-        Chain = DAG.getCopyToReg(Chain, dl, NextVA.getLocReg(), Hi, Chain.getValue(1));
+        Chain = DAG.getCopyToReg(Chain, dl, NextVA.getLocReg(), Hi, InFlag);
+        InFlag = Chain.getValue(1);
         Ops.push_back(DAG.getRegister(NextVA.getLocReg(), MVT::i32));
       } else {
         // Single register argument
-        Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Arg, Chain.getValue(1));
+        Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Arg, InFlag);
+        InFlag = Chain.getValue(1);
         Ops.push_back(DAG.getRegister(VA.getLocReg(), Arg.getValueType()));
       }
     } else {
@@ -444,9 +453,16 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     }
   }
 
+  // If we have a flag, add it to the operands
+  if (InFlag.getNode())
+    Ops.push_back(InFlag);
+
   // Create the actual call node
   SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
   Chain = DAG.getNode(DLXISD::Call, dl, NodeTys, Ops);
+  // Print
+  llvm::errs() << "Created Call node with " << Ops.size() << " operands\n";
+  InFlag = Chain.getValue(1);
 
   // Handle return values
   if (!CLI.Ins.empty()) {
@@ -468,20 +484,23 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
           unsigned RegHi = NextVA.getLocReg();
 
           // Copy from the registers
-          SDValue Lo = DAG.getCopyFromReg(Chain, dl, RegLo, MVT::i32);
-          SDValue Hi = DAG.getCopyFromReg(Chain, dl, RegHi, MVT::i32);
+          SDValue Lo = DAG.getCopyFromReg(Chain, dl, RegLo, MVT::i32, InFlag);
+          InFlag = Lo.getValue(2);
+          SDValue Hi = DAG.getCopyFromReg(Chain, dl, RegHi, MVT::i32, InFlag);
+          InFlag = Hi.getValue(2);
 
           // Combine the parts into the full return value
           SDValue RetValue = DAG.getNode(ISD::BUILD_PAIR, dl, VA.getValVT(), Lo, Hi);
           InVals.push_back(RetValue);
         } else {
           // Single register return value
-          SDValue RV = DAG.getCopyFromReg(Chain, dl, VA.getLocReg(), VA.getValVT());
+          SDValue RV = DAG.getCopyFromReg(Chain, dl, VA.getLocReg(), VA.getValVT(), InFlag);
+          Chain = RV.getValue(1);
+          InFlag = RV.getValue(2);
           InVals.push_back(RV);
         }
       } else if (VA.isMemLoc()) {
         // Handle memory return values if necessary
-        // Load the value from the stack
         unsigned Offset = VA.getLocMemOffset();
         SDValue StackPtr = DAG.getCopyFromReg(Chain, dl, DLX::R2, MVT::i32);
         SDValue Addr = DAG.getNode(ISD::ADD, dl, MVT::i32,
@@ -490,6 +509,11 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
         InVals.push_back(Load);
       }
     }
+  }
+
+  llvm::errs() << "Creating Call node with " << Ops.size() << " operands\n";
+  for (unsigned i = 0; i < Ops.size(); ++i) {
+      llvm::errs() << "Operand " << i << ": " << Ops[i].getOpcode() << "\n";
   }
 
   return Chain;
@@ -564,6 +588,13 @@ DLXTargetLowering::LowerReturn(SDValue Chain,
 
   // Analyze outgoing return values.
   CCInfo.AnalyzeReturn(Outs, DLX_CRetConv);
+
+  llvm::errs() << "Outs: " << Outs.size() << "\n";
+
+  for (unsigned i = 0; i < RVLocs.size(); ++i) {
+    CCValAssign &VA = RVLocs[i];
+    llvm::errs() << "RVLocs[" << i << "]: " << VA.getLocReg() << "\n";
+  }
 
   SDValue Flag;
   SmallVector<SDValue, 4> RetOps;

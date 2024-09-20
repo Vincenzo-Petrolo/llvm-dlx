@@ -835,11 +835,23 @@ EmitMachineNode(SDNode *Node, bool IsClone, bool IsCloned,
   if (II.isVariadic())
     assert(NumMIOperands >= II.getNumOperands() &&
            "Too few operands for a variadic node!");
-  else
+  else {
+    llvm::errs() << "NumIOperands = " << NumMIOperands << "\n";
+    llvm::errs() << "II.getNumOperands() = " << II.getNumOperands() << "\n";
+    llvm::errs() << "II.getNumImplicitDefs() = " << II.getNumImplicitDefs() << "\n";
+    llvm::errs() << "NumImpUses = " << NumImpUses << "\n";
+
+    // Print the SDNode
+    Node->dump();
+    llvm::errs() << "Opcode: " << Node->getOpcode() << "\n";
+
+
     assert(NumMIOperands >= II.getNumOperands() &&
            NumMIOperands <= II.getNumOperands() + II.getNumImplicitDefs() +
                             NumImpUses &&
            "#operands for dag node doesn't match .td file!");
+
+  }
 #endif
 
   // Create the new machine instruction.

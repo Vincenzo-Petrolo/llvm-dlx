@@ -54,10 +54,10 @@ def R31 : DLXReg<31,"r31", ["ra"]>, DwarfRegNum<[31]>;
 // The order of registers represents the preferred allocation sequence.
 // Registers are listed in the order caller-save, callee-save, specials.
 def GPR : RegisterClass<"DLX", [i32], 32, (add
-    (sequence "R%u", 10, 17),
     (sequence "R%u", 5, 7),
     (sequence "R%u", 28, 31),
     (sequence "R%u", 8, 9),
+    (sequence "R%u", 10, 17),
     (sequence "R%u", 18, 27),
     (sequence "R%u", 0, 4)
   )>;

@@ -514,6 +514,8 @@ RegScavenger::spill(Register Reg, const TargetRegisterClass &RC, int SPAdj,
           ": Cannot scavenge register without an emergency spill slot!";
       report_fatal_error(Msg.c_str());
     }
+    llvm::errs() << "RegisterScavenging: Spilling " << printReg(Reg, TRI)
+                 << " into FI " << FI << '\n';
     TII->storeRegToStackSlot(*MBB, Before, Reg, true, Scavenged[SI].FrameIndex,
                              &RC, TRI);
     MachineBasicBlock::iterator II = std::prev(Before);

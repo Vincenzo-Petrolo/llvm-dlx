@@ -46,11 +46,6 @@ def DLX_CRetConv : CallingConv<[
   // Return i32 and promoted types in R10
   CCIfType<[i32], CCAssignToReg<[R10]>>,
 
-  // Return i32 on stack if necessary
-  CCIfType<[i32], CCAssignToStack<4, 4>>,
-
-  // Fallback: assign any remaining types to the stack
-  CCAssignToStack<4, 4>
 ]>;
 
 def DLX_CalleeSavedRegs : CalleeSavedRegs<( add R2,
