@@ -183,6 +183,10 @@ unsigned DLXMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
                                            const MCSubtargetInfo &STI) const {
   const MCOperand &MO = MI.getOperand(OpNo);
 
+  // Debug pritn the operation
+  llvm::errs() << MI.getOpcode() << "Operand type: ";
+  MO.print(llvm::errs());
+
   MCInstrDesc const &Desc = MCII.get(MI.getOpcode());
   unsigned MIFrm = Desc.TSFlags & DLXII::InstFormatMask;
 

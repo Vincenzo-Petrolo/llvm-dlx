@@ -393,6 +393,7 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   SDValue Callee = CLI.Callee;
   CallingConv::ID CallConv = CLI.CallConv;
   bool IsVarArg = CLI.IsVarArg;
+  EVT PtrVT = getPointerTy(DAG.getDataLayout());
 
   llvm::errs() << "LowerCall\n";
 
@@ -402,6 +403,18 @@ DLXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // Use your custom calling convention
   CCInfo.AnalyzeCallOperands(CLI.Outs, DLX_CCallingConv);
+
+  // If the callee is an external symbol, then we need to load the address of
+  // the symbol into a register using LH1 and ORI operations
+  if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee)) {
+    Callee = LowerGlobalAddress(Callee, DAG);
+  } else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(Callee)) {
+    Callee = LowerExternalSymbol(Callee, DAG);
+  } else if (BlockAddressSDNode *BA = dyn_cast<BlockAddressSDNode>(Callee)) {
+    Callee = LowerBlockAddress(Callee, DAG);
+  } else {
+    llvm_unreachable("Unsupported call target");
+  }
 
   // Prepare the call sequence
   SmallVector<SDValue, 8> Ops;
@@ -770,31 +783,26 @@ DLXTargetLowering::LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const {
   return Addr;
 }
 
-SDValue 
-DLXTargetLowering::LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const {
+SDValue DLXTargetLowering::LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const {
+  // Lower the ExternalSymbol node to the address of the symbol.
+
+  // Get the symbol name
   ExternalSymbolSDNode *ES = cast<ExternalSymbolSDNode>(Op);
-  const char *Symbol = ES->getSymbol();
-
   SDLoc DL(Op);
-  SDValue Chain = DAG.getEntryNode();
-  
-  // Get the target-specific symbol node
-  SDValue Callee = DAG.getTargetExternalSymbol(Symbol, getPointerTy(DAG.getDataLayout()));
 
-  // Determine if the callee is a symbol (direct call) or a register (indirect call)
-  if (isa<ExternalSymbolSDNode>(Callee)) {
-      // Direct call to an external symbol
-      // JAL: Direct Jump And Link to an external symbol
-      Callee = DAG.getTargetExternalSymbol(Symbol, getPointerTy(DAG.getDataLayout()), DLXII::MO_CALL);
-      SDValue Ops[] = { Callee, Chain };  // Callee is a symbol
-      return DAG.getNode(DLXISD::Call, DL, DAG.getVTList(MVT::Other, MVT::Glue), Ops);
-  } else {
-      // Indirect call via register (e.g., function pointer)
-      // JALR: Jump And Link Register
-      SDValue Reg = Callee;  // Callee is a register here
-      SDValue Ops[] = { Reg, Chain };  // Register comes before Chain
-      return DAG.getNode(DLXISD::Call, DL, DAG.getVTList(MVT::Other, MVT::Glue), Ops);
-  }
+  // Create a TargetExternalSymbol node
+  SDValue TES = DAG.getTargetExternalSymbol(ES->getSymbol(), MVT::i32);
+
+  // Load the upper 16 bits of the symbol's address into a register using LHI
+  SDValue LHI = DAG.getNode(DLXISD::LHI, DL, MVT::i32, TES);
+
+  //TODO fix
+  SDValue Imm16 = DAG.getTargetConstant(0, DL, MVT::i16);
+
+  // Emit the ORI operation with LHI as the source and Imm16 as the immediate
+  SDValue ORI = DAG.getNode(DLXISD::ORI, DL, MVT::i32, LHI, Imm16);
+
+  return ORI;
 }
 
 SDValue
@@ -806,7 +814,7 @@ DLXTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::RETURNADDR:           return lowerRETURNADDR(Op, DAG);
   case ISD::SELECT:               return lowerSELECT(Op, DAG);
   case ISD::FRAMEADDR:            return lowerFRAMEADDR(Op, DAG);
-  case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
+  // case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
   default: llvm_unreachable("unimplemented operand");
   }
 }
