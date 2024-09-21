@@ -384,7 +384,7 @@ def JR  : DLXInstJ<OPC_JR, (outs ), (ins GPR:$rs1), "jr", "$rs1">,
 
 // This is for calling functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
-let isCall = 1, Defs = [R31] in
+let isCall = 1, Defs = [R10, R31] in
 def JALR : DLXInstJ<OPC_JALR, (outs), (ins GPR:$rs1), "jalr", "$rs1">, 
     Sched<[ReadJalr]>;
 }
