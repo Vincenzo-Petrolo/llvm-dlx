@@ -186,6 +186,7 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
   EXPAND(ANY_EXTEND);
   EXPAND(TRUNCATE);
 
+  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
   // Set minimum and preferred function alignment (log2)
   setMinFunctionAlignment(Align(1));
   setPrefFunctionAlignment(Align(1));
