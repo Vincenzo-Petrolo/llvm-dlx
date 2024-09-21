@@ -193,6 +193,9 @@ DLXTargetLowering::DLXTargetLowering(const TargetMachine &TM,
 
   // Set preferred loop alignment (log2)
   setPrefLoopAlignment(Align(1));
+
+  // Effectively disable jump table generation.
+  setMinimumJumpTableEntries(INT_MAX);
 }
 
 const char *DLXTargetLowering::getTargetNodeName(unsigned Opcode) const {
