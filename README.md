@@ -110,5 +110,14 @@ to learn about the layout of the source code tree.
 
 ### DLX32 Configuration
 ```sh
-cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="DLX" -DCMAKE_BUILD_TYPE="Debug" -DLLVM_ENABLE_ASSERTIONS=Off -DLLVM_DEFAULT_TARGET_TRIPLE="dlx32-unknown-elf"  ../llvm/
+cmake -G "Ninja" \
+  -DLLVM_ENABLE_PROJECTS="clang" \
+  -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="DLX" \
+  -DLLVM_TARGETS_TO_BUILD="" \
+  -DCMAKE_BUILD_TYPE="Debug" \
+  -DLLVM_ENABLE_ASSERTIONS=Off \
+  -DLLVM_DEFAULT_TARGET_TRIPLE="dlx32-unknown-elf" \
+  -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+  -DLLVM_ENABLE_THREADS=Off \
+  ../llvm/
 ```
