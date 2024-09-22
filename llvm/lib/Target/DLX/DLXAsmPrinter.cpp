@@ -14,6 +14,7 @@
 
 #include "DLXInstrInfo.h"
 #include "DLXTargetMachine.h"
+#include "MCTargetDesc/DLXMCExpr.h"
 #include "MCTargetDesc/DLXInstPrinter.h"
 #include "TargetInfo/DLXTargetInfo.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -134,17 +135,36 @@ bool DLXAsmPrinter::lowerOperand(const MachineOperand& MO, MCOperand &MCOp) cons
 MCOperand DLXAsmPrinter::LowerSymbolOperand(const MachineOperand &MO,
                                               MCSymbol *Sym) const {
   MCContext &Ctx = OutContext;
+  DLXMCExpr::VariantKind Kind;
 
-  // See lowerSymbolOperand function in RISCVInstLower.cpp
+  switch (MO.getTargetFlags()) {
+  default:
+    llvm_unreachable("Unknown target flag on GV operand");
+  case DLXII::MO_None:
+    Kind = DLXMCExpr::VK_DLX_None;
+    break;
+  case DLXII::MO_CALL:
+    Kind = DLXMCExpr::VK_DLX_CALL;
+    break;
+  case DLXII::MO_LO:
+    Kind = DLXMCExpr::VK_DLX_LO;
+    break;
+  case DLXII::MO_HI:
+    Kind = DLXMCExpr::VK_DLX_HI;
+    break;
+  }
 
-  const MCExpr *Expr =
-    MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Ctx);
+  const MCExpr *ME =
+      MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Ctx);
 
   if (!MO.isJTI() && !MO.isMBB() && MO.getOffset())
-    Expr = MCBinaryExpr::createAdd(
-        Expr, MCConstantExpr::create(MO.getOffset(), Ctx), Ctx);
+    ME = MCBinaryExpr::createAdd(
+        ME, MCConstantExpr::create(MO.getOffset(), Ctx), Ctx);
 
-  return MCOperand::createExpr(Expr);
+  if (Kind != DLXMCExpr::VK_DLX_None)
+    ME = DLXMCExpr::create(ME, Kind, Ctx);
+
+  return MCOperand::createExpr(ME);
 }
 
 // Force static initialization.

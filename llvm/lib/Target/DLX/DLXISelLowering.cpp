@@ -790,21 +790,45 @@ DLXTargetLowering::LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const {
 SDValue DLXTargetLowering::LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const {
   // Lower the ExternalSymbol node to the address of the symbol.
 
-  // Get the symbol name
+  // Cast the node to ExternalSymbolSDNode to access symbol information
   ExternalSymbolSDNode *ES = cast<ExternalSymbolSDNode>(Op);
   SDLoc DL(Op);
 
-  // Create a TargetExternalSymbol node
-  SDValue TES = DAG.getTargetExternalSymbol(ES->getSymbol(), MVT::i32);
+  // Define the relocation flags for upper and lower parts
+  const unsigned MO_ABS_HI = DLXII::MO_HI; // Replace with actual flag value
+  const unsigned MO_ABS_LO = DLXII::MO_LO; // Replace with actual flag value
 
-  // Load the upper 16 bits of the symbol's address into a register using LHI
-  SDValue LHI = DAG.getNode(DLXISD::LHI, DL, MVT::i32, TES);
+  // Create a TargetExternalSymbol node for the upper 16 bits with MO_ABS_HI
+  SDValue TES_upper = DAG.getTargetExternalSymbol(
+      ES->getSymbol(), // Symbol name
+      MVT::i32,        // 16-bit value type for upper bits
+      MO_ABS_HI        // Relocation flag for upper 16 bits
+  );
 
-  //TODO fix
-  SDValue Imm16 = DAG.getTargetConstant(0, DL, MVT::i16);
+  // Load the upper 16 bits into a register using LHI
+  // LHI expects a 16-bit immediate, so TES_upper must be MVT::i16
+  SDValue LHI = DAG.getNode(
+      DLXISD::LHI, // Target-specific LHI node
+      DL,          // Source location
+      MVT::i32,    // Resulting value type (32-bit)
+      TES_upper    // 16-bit upper part
+  );
 
-  // Emit the ORI operation with LHI as the source and Imm16 as the immediate
-  SDValue ORI = DAG.getNode(DLXISD::ORI, DL, MVT::i32, LHI, Imm16);
+  // Create a TargetExternalSymbol node for the lower 16 bits with MO_ABS_LO
+  SDValue TES_lower = DAG.getTargetExternalSymbol(
+      ES->getSymbol(), // Symbol name
+      MVT::i32,        // 16-bit value type for lower bits
+      MO_ABS_LO        // Relocation flag for lower 16 bits
+  );
+
+  // Combine the upper and lower 16 bits using ORI
+  SDValue ORI = DAG.getNode(
+      DLXISD::ORI, // Target-specific ORI node
+      DL,          // Source location
+      MVT::i32,    // Resulting value type (32-bit)
+      LHI,         // Upper 16 bits loaded by LHI
+      TES_lower    // Lower 16 bits zero-extended
+  );
 
   return ORI;
 }

@@ -233,8 +233,9 @@ unsigned DLXMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
   }
   
   if (FixupKind == -1) {
+    MI.dump();
     llvm::errs() << "Kind: " << Kind << "\n";
-    llvm::errs() << "VK: " << cast<MCSymbolRefExpr>(Expr)->getKind() << "\n";
+    // llvm::errs() << "VK: " << cast<MCSymbolRefExpr>(Expr)->getKind() << "\n";
     llvm::errs() << "Opcode: " << Desc.getOpcode() << "\n";
     llvm_unreachable("Unhandled fixup kind!");
   }
