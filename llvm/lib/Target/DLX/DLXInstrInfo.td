@@ -295,7 +295,7 @@ def LHU : Load_ri<OPC_LHU, "lhu">, Sched<[WriteLDH, ReadMemBase]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 class Store_rri<DLXOpcode opcode, string opcodestr>
-    : DLXInstI<opcode, (outs), (ins GPR:$rs2, GPR:$rs1, simm16:$imm16), opcodestr, "${imm16}(${rs1}), $rs2">;
+    : DLXInstS<opcode, (outs), (ins GPR:$rs2, GPR:$rs1, simm16:$imm16), opcodestr, "${imm16}(${rs1}), $rs2">;
 
 def SB  : Store_rri<OPC_SB,  "sb">, Sched<[WriteSTB, ReadStoreData, ReadMemBase]>;
 def SH  : Store_rri<OPC_SH,  "sh">, Sched<[WriteSTH, ReadStoreData, ReadMemBase]>;

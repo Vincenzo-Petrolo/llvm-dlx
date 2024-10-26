@@ -169,6 +169,19 @@ class DLXInstI<DLXOpcode opcode, dag outs, dag ins,
   let Opcode = opcode.Value;
 }
 
+class DLXInstS<DLXOpcode opcode, dag outs, dag ins,
+              string opcodestr, string argstr>
+    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
+  bits<16> imm16;
+  bits<5> rs1;
+  bits<5> rs2;
+
+  let Inst{31-16} = imm16;
+  let Inst{15-11} = rs2;
+  let Inst{10-6} = rs1;
+  let Opcode = opcode.Value;
+}
+
 class DLXInstB<DLXOpcode opcode, dag outs, dag ins,
               string opcodestr, string argstr>
     : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatB> {
