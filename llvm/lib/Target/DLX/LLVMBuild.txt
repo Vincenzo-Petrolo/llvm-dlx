@@ -17,7 +17,7 @@
 
 [common]
 # Declare any build subdirectories
-subdirectories = MCTargetDesc TargetInfo
+subdirectories = MCTargetDesc TargetInfo Disassembler
 
 [component_0]
 # TargetGroup components are an extension of LibraryGroups, specifically for
@@ -33,8 +33,9 @@ parent = Target
 # This target defines an assembly printer. Further has_* statements must be
 # set here when the backend has more feathres such as assembly parser, JIT
 # compilation support, etc
-has_asmprinter = 1
 has_asmparser = 1
+has_asmprinter = 1
+has_disassembler = 1
 
 [component_1]
 type = Library

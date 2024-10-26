@@ -111,6 +111,8 @@ const char *MCInstPrinter::matchAliasPatterns(const MCInst *MI,
                         });
   if (It == M.OpToPatterns.end() || It->Opcode != MI->getOpcode())
     return nullptr;
+  
+  // llvm::errs() << "found alias for opcode " << MI->getOpcode() << "\n";
 
   // Try all patterns for this opcode.
   uint32_t AsmStrOffset = ~0U;
@@ -118,6 +120,7 @@ const char *MCInstPrinter::matchAliasPatterns(const MCInst *MI,
       M.Patterns.slice(It->PatternStart, It->NumPatterns);
   for (const AliasPattern &P : Patterns) {
     // Check operand count first.
+    // llvm::errs() << "Num operands for alias match! " << MI->getNumOperands() << " vs " << (unsigned int)(P.NumOperands) << "\n";
     if (MI->getNumOperands() != P.NumOperands)
       return nullptr;
 
@@ -137,6 +140,8 @@ const char *MCInstPrinter::matchAliasPatterns(const MCInst *MI,
   // If no alias matched, don't print an alias.
   if (AsmStrOffset == ~0U)
     return nullptr;
+
+  // llvm::errs() << "returning alias string\n";
 
   // Go to offset AsmStrOffset and use the null terminated string there. The
   // offset should point to the beginning of an alias string, so it should

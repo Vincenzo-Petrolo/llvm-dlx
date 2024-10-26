@@ -337,7 +337,7 @@ defm : StPat<store, SW>;
 // --------
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class BranchCC_ri<DLXOpcode Opcode, string opcodestr>
-    : DLXInstI<Opcode, (outs),
+    : DLXInstB<Opcode, (outs),
               (ins GPR:$rs1, brtarget:$imm16),
               opcodestr, "$rs1, $imm16">,
       Sched<[WriteJmp]> {
@@ -379,13 +379,13 @@ def : Pat<(brcond GPR:$cond, bb:$imm16), (BNEZ GPR:$cond, brtarget:$imm16)>;
 
 */
 
-def JR  : DLXInstJ<OPC_JR, (outs ), (ins GPR:$rs1), "jr", "$rs1">, 
+def JR  : DLXInstJR<OPC_JR, (outs ), (ins GPR:$rs1), "jr", "$rs1">, 
     Sched<[ReadJalr]>;
 
 // This is for calling functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 let isCall = 1, Defs = [R10, R31] in
-def JALR : DLXInstJ<OPC_JALR, (outs), (ins GPR:$rs1), "jalr", "$rs1">, 
+def JALR : DLXInstJR<OPC_JALR, (outs), (ins GPR:$rs1), "jalr", "$rs1">, 
     Sched<[ReadJalr]>;
 }
 

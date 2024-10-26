@@ -219,6 +219,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
   ECase(EM_56800EX);
   ECase(EM_AMDGPU);
   ECase(EM_RISCV);
+  ECase(EM_DLX);
   ECase(EM_LANAI);
   ECase(EM_BPF);
 #undef ECase
@@ -376,6 +377,8 @@ void ScalarBitSetTraits<ELFYAML::ELF_EF>::bitset(IO &IO,
     BCase(EF_AVR_ARCH_XMEGA5);
     BCase(EF_AVR_ARCH_XMEGA6);
     BCase(EF_AVR_ARCH_XMEGA7);
+    break;
+  case ELF::EM_DLX:
     break;
   case ELF::EM_RISCV:
     BCase(EF_RISCV_RVC);
@@ -644,6 +647,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
     break;
   case ELF::EM_RISCV:
 #include "llvm/BinaryFormat/ELFRelocs/RISCV.def"
+    break;
+  case ELF::EM_DLX:
+#include "llvm/BinaryFormat/ELFRelocs/DLX.def"
     break;
   case ELF::EM_LANAI:
 #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"

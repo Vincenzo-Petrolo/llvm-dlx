@@ -1,0 +1,7 @@
+[component_0]
+type = Library
+name = DLXDisassembler
+parent = DLX
+required_libraries = MCDisassembler DLXInfo Support
+add_to_library_groups = DLX
+

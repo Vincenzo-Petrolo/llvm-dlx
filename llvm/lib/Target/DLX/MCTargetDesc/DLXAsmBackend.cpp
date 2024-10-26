@@ -83,8 +83,20 @@ const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
         { "fixup_DLX_BR_PC16", 0, 16, MCFixupKindInfo::FKF_IsPCRel } // 16-bit PC-relative
     };
 
-    if (Kind >= DLX::fixup_DLX_first && Kind < DLX::fixup_DLX_invalid) {
-        return Infos[Kind - DLX::fixup_DLX_first];
+    switch (Kind)
+    {
+    case DLX::fixup_DLX_LO16:
+      return Infos[0];
+    case DLX::fixup_DLX_HI16:
+      return Infos[1];
+    case DLX::fixup_DLX_JAL_PC26:
+      return Infos[2];
+    case DLX::fixup_DLX_BR_PC16:
+      return Infos[3];
+    default:
+      if (Kind - DLX::fixup_DLX_first >= DLX::NumTargetFixupKinds)
+        llvm_unreachable("Unknown fixup kind!");
+      break;
     }
 
     llvm::errs() << "FK Kind: " << Kind << "\n";

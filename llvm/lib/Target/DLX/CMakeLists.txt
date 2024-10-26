@@ -11,6 +11,7 @@ tablegen(LLVM DLXGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM DLXGenSubtargetInfo.inc -gen-subtarget)
 tablegen(LLVM DLXGenMCPseudoLowering.inc -gen-pseudo-lowering)
 tablegen(LLVM DLXGenAsmMatcher.inc -gen-asm-matcher)
+tablegen(LLVM DLXGenDisassemblerTables.inc -gen-disassembler)
 
 # DLXCommonTableGen must be defined
 add_public_tablegen_target(DLXCommonTableGen)
@@ -32,3 +33,4 @@ add_llvm_target(DLXCodeGen
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
 add_subdirectory(AsmParser)
+add_subdirectory(Disassembler)

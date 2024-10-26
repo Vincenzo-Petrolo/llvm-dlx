@@ -40,6 +40,9 @@ void DLXInstPrinter::printInst(const MCInst *MI, uint64_t Address,
                                  StringRef Annot, const MCSubtargetInfo &STI,
                                  raw_ostream &O) {
   // Try to print any aliases first.
+
+  // MI->print(llvm::errs());
+  
   if (!printAliasInstr(MI, O)) {
     printInstruction(MI, Address, O);
   }

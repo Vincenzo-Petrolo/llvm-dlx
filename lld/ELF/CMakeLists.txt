@@ -19,6 +19,7 @@ add_lld_library(lldELF
   Arch/PPC.cpp
   Arch/PPC64.cpp
   Arch/RISCV.cpp
+  Arch/DLX.cpp
   Arch/SPARCV9.cpp
   Arch/X86.cpp
   Arch/X86_64.cpp

@@ -58,9 +58,9 @@ unsigned DLXELFObjectWriter::getRelocType(MCContext &Ctx,
       Ctx.reportError(Fixup.getLoc(), "Unsupported relocation type");
       return ELF::R_DLX_NONE;
     case DLX::fixup_DLX_JAL_PC26:
-      return ELF::R_DLX_JAL_PC26;
+      return ELF::R_MIPS_PC26_S2;
     case DLX::fixup_DLX_BR_PC16:
-      return ELF::R_DLX_BR_PC16;
+      return ELF::R_MIPS_PC16;
     }
   }
 
@@ -75,13 +75,13 @@ unsigned DLXELFObjectWriter::getRelocType(MCContext &Ctx,
     Ctx.reportError(Fixup.getLoc(), "2-byte data relocations not supported");
     return ELF::R_DLX_NONE;
   case FK_Data_4:
-    return ELF::R_DLX_32;
+    return ELF::R_MIPS_32;
   case FK_Data_8:
-    return ELF::R_DLX_64;
+    return ELF::R_MIPS_64;
   case DLX::fixup_DLX_LO16:
-    return ELF::R_DLX_LO16;
+    return ELF::R_MIPS_LO16;
   case DLX::fixup_DLX_HI16:
-    return ELF::R_DLX_HI16;
+    return ELF::R_MIPS_HI16;
   }
 }
 
