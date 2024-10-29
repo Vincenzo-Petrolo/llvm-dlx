@@ -72,7 +72,7 @@ RelExpr DLXTargetInfo::getRelExpr(RelType type, const Symbol &s,
 // Handle DLX relocations similarly to MIPS.
 void DLXTargetInfo::relocateOne(uint8_t *loc, RelType type, uint64_t val) const {
 
-  outs() << "Relocating type: " << type << " with value: " << val << "\n";
+  outs() << "Relocating type: " << type << " with value: " << uint32_t(val) << "\n";
 
   switch (type) {
     case R_DLX_32:
@@ -83,32 +83,33 @@ void DLXTargetInfo::relocateOne(uint8_t *loc, RelType type, uint64_t val) const 
       return;
     case R_DLX_LO16: {
       uint32_t insn = read32le(loc);
-      uint32_t lo = val & 0xFFFF;
+      uint32_t lo = (val & 0xFFFF);
       outs() << "insn: " << insn << " lo: " << lo << "\n";
-      insn = (insn & 0xFFFF0000) | lo;
+      lo <<= 16;
+      insn |= lo;
       outs() << "new insn: " << insn << "\n";
       write32le(loc, insn);
       return;
     }
     case R_DLX_HI16: {
       uint32_t insn = read32le(loc);
-      uint32_t hi = (val + 0x8000) >> 16;
+      uint32_t hi = (val & 0xFFFF0000);
       outs() << "insn: " << insn << " hi: " << hi << "\n";
-      insn =(insn & 0xFFFF0000) | hi;
+      insn |= hi;
       outs() << "new insn: " << insn << "\n";
       write32le(loc, insn);
       return;
     }
     case R_DLX_PC26_S2: {
-      uint32_t insn = read32le(loc) & 0xFC000000;
-      uint32_t imm26 = (val >> 2) & 0x03FFFFFF;
+      uint32_t insn = read32le(loc);
+      uint32_t imm26 = ((val >> 2) & 0x03FFFFFF) << 6;
       insn |= imm26;
       write32le(loc, insn);
       return;
     }
     case R_DLX_PC16: {
-      uint32_t insn = read32le(loc) & 0xFFFF0000;
-      uint32_t imm16 = (val >> 2) & 0xFFFF;
+      uint32_t insn = read32le(loc);
+      uint32_t imm16 = ((val >> 2) & 0xFFFF) << 16;
       insn |= imm16;
       write32le(loc, insn);
       return;
