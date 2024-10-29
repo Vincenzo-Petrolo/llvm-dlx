@@ -517,6 +517,8 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   raw_svector_ostream VecOS(Code);
   Assembler.getEmitter().encodeInstruction(Inst, VecOS, Fixups, STI);
 
+  outs() << "After encodeInstruction: ";
+
   for (unsigned i = 0, e = Fixups.size(); i != e; ++i)
     fixSymbolsInTLSFixups(Fixups[i].getValue());
 
@@ -537,67 +539,67 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   //   the group, though.
   MCDataFragment *DF;
 
-  if (Assembler.isBundlingEnabled()) {
-    MCSection &Sec = *getCurrentSectionOnly();
-    if (Assembler.getRelaxAll() && isBundleLocked()) {
-      // If the -mc-relax-all flag is used and we are bundle-locked, we re-use
-      // the current bundle group.
-      DF = BundleGroups.back();
-      CheckBundleSubtargets(DF->getSubtargetInfo(), &STI);
-    }
-    else if (Assembler.getRelaxAll() && !isBundleLocked())
-      // When not in a bundle-locked group and the -mc-relax-all flag is used,
-      // we create a new temporary fragment which will be later merged into
-      // the current fragment.
-      DF = new MCDataFragment();
-    else if (isBundleLocked() && !Sec.isBundleGroupBeforeFirstInst()) {
-      // If we are bundle-locked, we re-use the current fragment.
-      // The bundle-locking directive ensures this is a new data fragment.
-      DF = cast<MCDataFragment>(getCurrentFragment());
-      CheckBundleSubtargets(DF->getSubtargetInfo(), &STI);
-    }
-    else if (!isBundleLocked() && Fixups.size() == 0) {
-      // Optimize memory usage by emitting the instruction to a
-      // MCCompactEncodedInstFragment when not in a bundle-locked group and
-      // there are no fixups registered.
-      MCCompactEncodedInstFragment *CEIF = new MCCompactEncodedInstFragment();
-      insert(CEIF);
-      CEIF->getContents().append(Code.begin(), Code.end());
-      CEIF->setHasInstructions(STI);
-      return;
-    } else {
-      DF = new MCDataFragment();
-      insert(DF);
-    }
-    if (Sec.getBundleLockState() == MCSection::BundleLockedAlignToEnd) {
-      // If this fragment is for a group marked "align_to_end", set a flag
-      // in the fragment. This can happen after the fragment has already been
-      // created if there are nested bundle_align groups and an inner one
-      // is the one marked align_to_end.
-      DF->setAlignToBundleEnd(true);
-    }
+  // if (Assembler.isBundlingEnabled()) {
+  //   MCSection &Sec = *getCurrentSectionOnly();
+  //   if (Assembler.getRelaxAll() && isBundleLocked()) {
+  //     // If the -mc-relax-all flag is used and we are bundle-locked, we re-use
+  //     // the current bundle group.
+  //     DF = BundleGroups.back();
+  //     CheckBundleSubtargets(DF->getSubtargetInfo(), &STI);
+  //   }
+  //   else if (Assembler.getRelaxAll() && !isBundleLocked())
+  //     // When not in a bundle-locked group and the -mc-relax-all flag is used,
+  //     // we create a new temporary fragment which will be later merged into
+  //     // the current fragment.
+  //     DF = new MCDataFragment();
+  //   else if (isBundleLocked() && !Sec.isBundleGroupBeforeFirstInst()) {
+  //     // If we are bundle-locked, we re-use the current fragment.
+  //     // The bundle-locking directive ensures this is a new data fragment.
+  //     DF = cast<MCDataFragment>(getCurrentFragment());
+  //     CheckBundleSubtargets(DF->getSubtargetInfo(), &STI);
+  //   }
+  //   else if (!isBundleLocked() && Fixups.size() == 0) {
+  //     // Optimize memory usage by emitting the instruction to a
+  //     // MCCompactEncodedInstFragment when not in a bundle-locked group and
+  //     // there are no fixups registered.
+  //     MCCompactEncodedInstFragment *CEIF = new MCCompactEncodedInstFragment();
+  //     insert(CEIF);
+  //     CEIF->getContents().append(Code.begin(), Code.end());
+  //     CEIF->setHasInstructions(STI);
+  //     return;
+  //   } else {
+  //     DF = new MCDataFragment();
+  //     insert(DF);
+  //   }
+  //   if (Sec.getBundleLockState() == MCSection::BundleLockedAlignToEnd) {
+  //     // If this fragment is for a group marked "align_to_end", set a flag
+  //     // in the fragment. This can happen after the fragment has already been
+  //     // created if there are nested bundle_align groups and an inner one
+  //     // is the one marked align_to_end.
+  //     DF->setAlignToBundleEnd(true);
+  //   }
 
-    // We're now emitting an instruction in a bundle group, so this flag has
-    // to be turned off.
-    Sec.setBundleGroupBeforeFirstInst(false);
-  } else {
+  //   // We're now emitting an instruction in a bundle group, so this flag has
+  //   // to be turned off.
+  //   Sec.setBundleGroupBeforeFirstInst(false);
+  // } else {
     DF = getOrCreateDataFragment(&STI);
-  }
+  // }
 
   // Add the fixups and data.
-  for (unsigned i = 0, e = Fixups.size(); i != e; ++i) {
-    Fixups[i].setOffset(Fixups[i].getOffset() + DF->getContents().size());
-    DF->getFixups().push_back(Fixups[i]);
-  }
+  // for (unsigned i = 0, e = Fixups.size(); i != e; ++i) {
+  //   Fixups[i].setOffset(Fixups[i].getOffset() + DF->getContents().size());
+  //   DF->getFixups().push_back(Fixups[i]);
+  // }
   DF->setHasInstructions(STI);
   DF->getContents().append(Code.begin(), Code.end());
 
-  if (Assembler.isBundlingEnabled() && Assembler.getRelaxAll()) {
-    if (!isBundleLocked()) {
-      mergeFragment(getOrCreateDataFragment(&STI), DF);
-      delete DF;
-    }
-  }
+  // if (Assembler.isBundlingEnabled() && Assembler.getRelaxAll()) {
+  //   if (!isBundleLocked()) {
+  //     mergeFragment(getOrCreateDataFragment(&STI), DF);
+  //     delete DF;
+  //   }
+  // }
 }
 
 void MCELFStreamer::EmitBundleAlignMode(unsigned AlignPow2) {

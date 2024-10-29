@@ -34,10 +34,12 @@ class InstFormat<bits<5> val> {
 def InstFormatPseudo : InstFormat<0>;
 def InstFormatR      : InstFormat<1>;
 def InstFormatI      : InstFormat<2>;
-def InstFormatJ      : InstFormat<3>;
-def InstFormatJR     : InstFormat<4>;
-def InstFormatB      : InstFormat<5>;
-def InstFormatOther  : InstFormat<6>;
+def InstFormatS      : InstFormat<3>;
+def InstFormatJ      : InstFormat<4>;
+def InstFormatJR     : InstFormat<5>;
+def InstFormatB      : InstFormat<6>;
+def InstFormatLHI    : InstFormat<7>;
+def InstFormatOther  : InstFormat<8>;
 
 
 class DLXOpcode<bits<6> val> {
@@ -169,9 +171,20 @@ class DLXInstI<DLXOpcode opcode, dag outs, dag ins,
   let Opcode = opcode.Value;
 }
 
+class DLXInstLHI<DLXOpcode opcode, dag outs, dag ins,
+              string opcodestr, string argstr>
+    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatLHI> {
+  bits<16> imm16;
+  bits<5> rd;
+
+  let Inst{31-16} = imm16;
+  let Inst{15-11} = rd;
+  let Opcode = opcode.Value;
+}
+
 class DLXInstS<DLXOpcode opcode, dag outs, dag ins,
               string opcodestr, string argstr>
-    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
+    : DLXInst<outs, ins, opcodestr, argstr, [], InstFormatS> {
   bits<16> imm16;
   bits<5> rs1;
   bits<5> rs2;

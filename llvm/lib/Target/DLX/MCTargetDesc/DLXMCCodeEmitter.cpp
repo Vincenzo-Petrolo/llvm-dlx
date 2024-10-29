@@ -125,7 +125,12 @@ void DLXMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
   default:
     llvm_unreachable("Unhandled encodeInstruction length!");
   case 4: {
+    outs() << "Emitting instruction with Opcode("<< MI.getOpcode() <<" : ";
+    MI.dump_pretty(outs());
+    outs() << "\n";
+
     uint32_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
+    outs() << "Bits: " << Bits << "\n";
     support::endian::write(OS, Bits, support::little);
     break;
   }

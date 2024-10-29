@@ -218,7 +218,7 @@ class ALU_ri<DLXOpcode opcode, string opcodestr>
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ALU_i<DLXOpcode opcode, string opcodestr>
-    : DLXInstI<opcode, (outs GPR:$rd), (ins simm16:$imm16), opcodestr, "$rd, $imm16">,
+    : DLXInstLHI<opcode, (outs GPR:$rd), (ins simm16:$imm16), opcodestr, "$rd, $imm16">,
       Sched<[WriteIALU, ReadIALU]>;
 
 
@@ -260,6 +260,7 @@ def : PatGprUimm16<add, ADDUI>;
 def : PatGprSimm16<sub, SUBI>;
 def : PatGprUimm16<sub, SUBUI>;
 def : PatGprSimm16<and, ANDI>;
+
 def : PatGprSimm16<or,  ORI>;
 def : PatGprSimm16<xor, XORI>;
 def : PatGprSimm16<shl, SLLI>;

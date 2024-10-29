@@ -66,11 +66,17 @@ void DLXAsmPrinter::EmitToStreamer(MCStreamer &S, const MCInst &Inst) {
 
 void DLXAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   // Do any auto-generated pseudo lowerings.
-  if (emitPseudoExpansionLowering(*OutStreamer, MI))
+  if (emitPseudoExpansionLowering(*OutStreamer, MI)) {
+    outs() << "Emitted pseudo expansion lowering\n";
     return;
+  }
 
   MCInst TmpInst;
   LowerInstruction(MI, TmpInst);
+  outs() << "DLXAsmPrinter::EmitInstruction: Emitting: ";
+  TmpInst.dump_pretty(outs());
+  outs() << "\n";
+
   EmitToStreamer(*OutStreamer, TmpInst);
 }
 
@@ -87,6 +93,10 @@ void DLXAsmPrinter::LowerInstruction(const MachineInstr *MI,
 }
 
 bool DLXAsmPrinter::lowerOperand(const MachineOperand& MO, MCOperand &MCOp) const {
+  outs() << "Lowering operand: ";
+  MO.dump();
+  outs() << "\n";
+  outs() << "Operand type: " << int(MO.getType()) << "\n";
   switch (MO.getType()) {
     case MachineOperand::MO_Register:
       // Ignore all implicit register operands.

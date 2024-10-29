@@ -14,14 +14,16 @@
 
 namespace llvm {
 namespace DLX {
-  enum Fixups {
-    fixup_DLX_LO16 =      FirstTargetFixupKind + 5, // Lower 16 bits
-    fixup_DLX_first =     fixup_DLX_LO16,
-    fixup_DLX_HI16 =      FirstTargetFixupKind + 4,      // Higher 16 bits
-    fixup_DLX_JAL_PC26 =  FirstTargetFixupKind + 3,                   // 26-bit PC-relative address for calls/jumps
-    fixup_DLX_BR_PC16 =   FirstTargetFixupKind + 9,                    // 16-bit PC-relative address for branches
-    NumTargetFixupKinds = 4
-  };
+enum Fixups {
+  fixup_DLX_first = FirstTargetFixupKind,
+  fixup_DLX_LO16 = FirstTargetFixupKind, // Lower 16 bits
+  fixup_DLX_HI16,                        // Higher 16 bits
+  fixup_DLX_JAL_PC26, // 26-bit PC-relative address for calls/jumps
+  fixup_DLX_BR_PC16,  // 16-bit PC-relative address for branches
+  fixup_DLX_J_26,   // 26-bit absolute address for jumps
+  fixup_DLX_invalid,
+  NumTargetFixupKinds = fixup_DLX_invalid - FirstTargetFixupKind
+};
 } // namespace DLX
 } // namespace llvm
 

@@ -53,6 +53,7 @@ void DLXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
     break;
 
   case DLX::fixup_DLX_JAL_PC26:
+  case DLX::fixup_DLX_J_26:
     Value >>= 2; // Convert to word-aligned address for 26-bit offset
     Mask = 0x03FFFFFF;
     Value &= Mask; // Mask to get the 26-bit field
@@ -80,29 +81,16 @@ const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
         { "fixup_DLX_LO16", 0, 16, 0 }, // Lower 16 bits
         { "fixup_DLX_HI16", 0, 16, 0 }, // Higher 16 bits
         { "fixup_DLX_JAL_PC26", 0, 26, MCFixupKindInfo::FKF_IsPCRel }, // 26-bit PC-relative
-        { "fixup_DLX_BR_PC16", 0, 16, MCFixupKindInfo::FKF_IsPCRel } // 16-bit PC-relative
+        { "fixup_DLX_BR_PC16", 0, 16, MCFixupKindInfo::FKF_IsPCRel }, // 16-bit PC-relative
+        { "fixup_DLX_J_26", 0, 26, 0 } // 26-bit Absolute jump
     };
 
-    switch (Kind)
-    {
-    case DLX::fixup_DLX_LO16:
-      return Infos[0];
-    case DLX::fixup_DLX_HI16:
-      return Infos[1];
-    case DLX::fixup_DLX_JAL_PC26:
-      return Infos[2];
-    case DLX::fixup_DLX_BR_PC16:
-      return Infos[3];
-    default:
-      if (Kind - DLX::fixup_DLX_first >= DLX::NumTargetFixupKinds)
-        llvm_unreachable("Unknown fixup kind!");
-      break;
-    }
+    if (Kind - DLX::fixup_DLX_first >= DLX::NumTargetFixupKinds)
+      llvm_unreachable("Unknown fixup kind!");
 
     llvm::errs() << "FK Kind: " << Kind << "\n";
 
-    // Default case for standard fixups
-    return MCAsmBackend::getFixupKindInfo(Kind);
+    return Infos[Kind - DLX::fixup_DLX_first];
 }
 
 // MCAsmBackend

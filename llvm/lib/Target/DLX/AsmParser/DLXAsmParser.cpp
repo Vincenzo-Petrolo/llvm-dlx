@@ -405,6 +405,8 @@ bool DLXAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode, Operan
   long unsigned err_info;
   auto MatchResult = MatchInstructionImpl(Operands, Inst, err_info, MatchingInlineAsm);
 
+  outs() << "DLXAsmParser::MatchAndEmitInstruction: " << Opcode << " " << MatchResult << "\n";
+
   switch (MatchResult) {
     case Match_Success:
       // Emit the matched instruction to the output streamer
@@ -528,6 +530,7 @@ bool DLXAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
 }
 
 bool DLXAsmParser::ParseDirective(AsmToken DirectiveID) {
+  DirectiveID.dump(llvm::errs());
   llvm_unreachable("No directives supported yet!");
 
   return true;

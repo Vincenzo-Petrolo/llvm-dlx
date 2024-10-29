@@ -25,29 +25,29 @@ public:
 
 // Initialize DLX target settings
 DLXTargetInfo::DLXTargetInfo() {
-  copyRel = R_MIPS_COPY;
-  noneRel = R_MIPS_NONE;
-  pltRel = R_MIPS_JUMP_SLOT;
-  relativeRel = R_MIPS_REL32;
-  symbolicRel = R_MIPS_32;
-  tlsModuleIndexRel = R_MIPS_TLS_DTPMOD32;
-  tlsOffsetRel = R_MIPS_TLS_DTPREL32;
-  tlsGotRel = R_MIPS_TLS_TPREL32;
+  copyRel = 0;
+  noneRel = 0;
+  pltRel = 0;
+  relativeRel = 0;
+  symbolicRel = R_DLX_32;
+  tlsModuleIndexRel = 0;
+  tlsOffsetRel = 0;
+  tlsGotRel = 0;
   gotRel = symbolicRel;
 }
 
 // Minimal implementation for getDynRel.
 RelType DLXTargetInfo::getDynRel(RelType type) const {
   switch (type) {
-    case R_MIPS_32:
-    case R_MIPS_64:
-    case R_MIPS_LO16:
-    case R_MIPS_HI16:
-    case R_MIPS_PC16:
-    case R_MIPS_PC26_S2:
+    case R_DLX_32:
+    case R_DLX_64:
+    case R_DLX_LO16:
+    case R_DLX_HI16:
+    case R_DLX_PC16:
+    case R_DLX_PC26_S2:
       return type;
     default:
-      return R_MIPS_NONE; // Return a safe default
+      return R_DLX_NONE; // Return a safe default
   }
 }
 
@@ -55,14 +55,14 @@ RelType DLXTargetInfo::getDynRel(RelType type) const {
 RelExpr DLXTargetInfo::getRelExpr(RelType type, const Symbol &s,
                                   const uint8_t *loc) const {
   switch (type) {
-    case R_MIPS_PC26_S2:
-    case R_MIPS_PC16:
+    case R_DLX_PC26_S2:
+    case R_DLX_PC16:
       return R_PC; // PC-relative relocations
-    case R_MIPS_LO16:
-    case R_MIPS_HI16:
+    case R_DLX_LO16:
+    case R_DLX_HI16:
       return R_ABS; // Absolute relocations
-    case R_MIPS_32:
-    case R_MIPS_64:
+    case R_DLX_32:
+    case R_DLX_64:
       return R_ABS; // Absolute data relocations
     default:
       return R_NONE; // Return None for unsupported or unknown types
@@ -71,35 +71,42 @@ RelExpr DLXTargetInfo::getRelExpr(RelType type, const Symbol &s,
 
 // Handle DLX relocations similarly to MIPS.
 void DLXTargetInfo::relocateOne(uint8_t *loc, RelType type, uint64_t val) const {
+
+  outs() << "Relocating type: " << type << " with value: " << val << "\n";
+
   switch (type) {
-    case R_MIPS_32:
+    case R_DLX_32:
       write32le(loc, val);
       return;
-    case R_MIPS_64:
+    case R_DLX_64:
       write64le(loc, val);
       return;
-    case R_MIPS_LO16: {
+    case R_DLX_LO16: {
       uint32_t insn = read32le(loc);
       uint32_t lo = val & 0xFFFF;
+      outs() << "insn: " << insn << " lo: " << lo << "\n";
       insn = (insn & 0xFFFF0000) | lo;
+      outs() << "new insn: " << insn << "\n";
       write32le(loc, insn);
       return;
     }
-    case R_MIPS_HI16: {
+    case R_DLX_HI16: {
       uint32_t insn = read32le(loc);
       uint32_t hi = (val + 0x8000) >> 16;
-      insn = (insn & 0xFFFF0000) | hi;
+      outs() << "insn: " << insn << " hi: " << hi << "\n";
+      insn =(insn & 0xFFFF0000) | hi;
+      outs() << "new insn: " << insn << "\n";
       write32le(loc, insn);
       return;
     }
-    case R_MIPS_PC26_S2: {
+    case R_DLX_PC26_S2: {
       uint32_t insn = read32le(loc) & 0xFC000000;
       uint32_t imm26 = (val >> 2) & 0x03FFFFFF;
       insn |= imm26;
       write32le(loc, insn);
       return;
     }
-    case R_MIPS_PC16: {
+    case R_DLX_PC16: {
       uint32_t insn = read32le(loc) & 0xFFFF0000;
       uint32_t imm16 = (val >> 2) & 0xFFFF;
       insn |= imm16;

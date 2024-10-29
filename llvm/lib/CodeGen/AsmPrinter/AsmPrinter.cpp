@@ -1083,6 +1083,9 @@ void AsmPrinter::EmitFunctionBody() {
     // Print a label for the basic block.
     EmitBasicBlockStart(MBB);
     for (auto &MI : MBB) {
+      outs() << "AsmPrinter::EmitFunctionBody ";
+      MI.print(outs());
+      outs() << "\n";
       // Print the assembly for the instruction.
       if (!MI.isPosition() && !MI.isImplicitDef() && !MI.isKill() &&
           !MI.isDebugInstr()) {
@@ -1141,6 +1144,7 @@ void AsmPrinter::EmitFunctionBody() {
         if (isVerbose()) emitKill(&MI, *this);
         break;
       default:
+        outs() << "Here default\n";
         EmitInstruction(&MI);
         break;
       }

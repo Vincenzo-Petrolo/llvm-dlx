@@ -3,11 +3,11 @@
 #endif
 
 ELF_RELOC(R_DLX_NONE,                0)
-ELF_RELOC(R_DLX_64,                  1)
+ELF_RELOC(R_DLX_16,                  1)
 ELF_RELOC(R_DLX_32,                  2)
-ELF_RELOC(R_DLX_16,                  3)
-ELF_RELOC(R_DLX_8,                   4)
-ELF_RELOC(R_DLX_HI16,                5)
-ELF_RELOC(R_DLX_LO16,                6)
-ELF_RELOC(R_DLX_JAL_PC26,            7)
-ELF_RELOC(R_DLX_BR_PC16,             8)
+ELF_RELOC(R_DLX_HI16,                3)
+ELF_RELOC(R_DLX_LO16,                4)
+ELF_RELOC(R_DLX_PC16,                5)
+ELF_RELOC(R_DLX_64,                  6)
+ELF_RELOC(R_DLX_PC26_S2,             7)
+ELF_RELOC(R_DLX_26,                  8)
