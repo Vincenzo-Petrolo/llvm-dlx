@@ -587,10 +587,10 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   // }
 
   // Add the fixups and data.
-  // for (unsigned i = 0, e = Fixups.size(); i != e; ++i) {
-  //   Fixups[i].setOffset(Fixups[i].getOffset() + DF->getContents().size());
-  //   DF->getFixups().push_back(Fixups[i]);
-  // }
+  for (unsigned i = 0, e = Fixups.size(); i != e; ++i) {
+    Fixups[i].setOffset(Fixups[i].getOffset() + DF->getContents().size());
+    DF->getFixups().push_back(Fixups[i]);
+  }
   DF->setHasInstructions(STI);
   DF->getContents().append(Code.begin(), Code.end());
 

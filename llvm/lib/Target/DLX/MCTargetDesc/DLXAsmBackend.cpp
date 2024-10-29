@@ -34,6 +34,11 @@ void DLXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                                const MCValue &Target, MutableArrayRef<char> Data,
                                uint64_t Value, bool IsResolved,
                                const MCSubtargetInfo *STI) const {
+  MCContext &Ctx = Asm.getContext();
+  MCFixupKindInfo Info = getFixupKindInfo(Fixup.getKind());
+  if (!Value)
+    return; // Doesn't change encoding.
+
   MCFixupKind Kind = Fixup.getKind();
   unsigned Offset = Fixup.getOffset();
   unsigned NumBytes = 4; // Assuming 32-bit instructions
@@ -69,20 +74,26 @@ void DLXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
     llvm_unreachable("Unknown fixup kind!");
   }
 
-  // Apply the fixup by inserting the value into the instruction
-  for (unsigned i = 0; i < NumBytes; ++i) {
-    Data[Offset + i] = uint8_t((Value >> (i * 8)) & 0xff);
+  // Shift the value into position.
+  Value <<= Info.TargetOffset;
+
+  assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
+
+  // For each byte of the fragment that the fixup touches, mask in the
+  // bits from the fixup value.
+  for (unsigned i = 0; i != NumBytes; ++i) {
+    Data[Offset + i] |= uint8_t((Value >> (i * 8)) & 0xff);
   }
 }
 
 const MCFixupKindInfo &DLXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
     const static MCFixupKindInfo Infos[DLX::NumTargetFixupKinds] = {
         // Name, Offset, Bits, Flags
-        { "fixup_DLX_LO16", 0, 16, 0 }, // Lower 16 bits
-        { "fixup_DLX_HI16", 0, 16, 0 }, // Higher 16 bits
-        { "fixup_DLX_JAL_PC26", 0, 26, MCFixupKindInfo::FKF_IsPCRel }, // 26-bit PC-relative
-        { "fixup_DLX_BR_PC16", 0, 16, MCFixupKindInfo::FKF_IsPCRel }, // 16-bit PC-relative
-        { "fixup_DLX_J_26", 0, 26, 0 } // 26-bit Absolute jump
+        { "fixup_DLX_LO16", 16, 16, 0 }, // Lower 16 bits
+        { "fixup_DLX_HI16", 16, 16, 0 }, // Higher 16 bits
+        { "fixup_DLX_JAL_PC26", 6, 26, MCFixupKindInfo::FKF_IsPCRel }, // 26-bit PC-relative
+        { "fixup_DLX_BR_PC16", 16, 16, MCFixupKindInfo::FKF_IsPCRel }, // 16-bit PC-relative
+        { "fixup_DLX_J_26", 6, 26, 0 } // 26-bit Absolute jump
     };
 
     if (Kind - DLX::fixup_DLX_first >= DLX::NumTargetFixupKinds)
