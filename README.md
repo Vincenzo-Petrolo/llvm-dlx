@@ -111,7 +111,7 @@ to learn about the layout of the source code tree.
 ### DLX32 Configuration
 ```sh
 cmake -G "Ninja" \
-  -DLLVM_ENABLE_PROJECTS="clang" \
+  -DLLVM_ENABLE_PROJECTS="clang;lld" \
   -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="DLX" \
   -DLLVM_TARGETS_TO_BUILD="" \
   -DCMAKE_BUILD_TYPE="Debug" \
