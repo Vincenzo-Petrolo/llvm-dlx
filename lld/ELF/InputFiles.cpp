@@ -131,6 +131,10 @@ static bool isCompatible(InputFile *file) {
   if (!file->isElf() && !isa<BitcodeFile>(file))
     return true;
 
+  outs() << "filename: " << file->getName() << "\n";
+  outs() << "config->ekind: " << config->ekind << "config->emachine: " << config->emachine << "\n";
+  outs() << "file->ekind: " << file->ekind << "file->emachine: " << file->emachine << "\n";
+
   if (file->ekind == config->ekind && file->emachine == config->emachine) {
     if (config->emachine != EM_MIPS)
       return true;

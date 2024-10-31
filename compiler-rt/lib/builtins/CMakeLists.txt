@@ -108,6 +108,7 @@ set(GENERIC_SOURCES
   muldc3.c
   muldf3.c
   muldi3.c
+  mulsi3.c
   mulodi4.c
   mulosi4.c
   muloti4.c

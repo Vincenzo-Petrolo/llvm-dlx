@@ -121,3 +121,39 @@ cmake -G "Ninja" \
   -DLLVM_ENABLE_THREADS=Off \
   ../llvm/
 ```
+
+### Building COMPILER-RT
+```sh
+cmake ../compiler-rt/ \
+  -G Ninja \
+  -DCOMPILER_RT_BUILD_BUILTINS=ON \
+  -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+  -DCOMPILER_RT_BUILD_XRAY=OFF \
+  -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+  -DCOMPILER_RT_BUILD_PROFILE=OFF \
+  -DCMAKE_C_COMPILER=clang-10 \
+  -DCMAKE_CXX_COMPILER=clang-10 \
+  -DCMAKE_AR=../build/bin/llvm-ar \
+  -DCMAKE_NM=../build/bin/llvm-nm \
+  -DCMAKE_RANLIB=../build/bin/llvm-ranlib \
+  -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -nostdlib -Wl,-m,elf32ldlx" \
+  -DCMAKE_C_COMPILER_TARGET="dlx32-unknown-elf" \
+  -DCMAKE_ASM_COMPILER_TARGET="dlx32-unknown-elf" \
+  -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON \
+  -DLLVM_CONFIG_PATH=../build/bin/llvm-config \
+  -DCMAKE_C_FLAGS="-integrated-as" \
+  -DCMAKE_CXX_FLAGS="-integrated-as" \
+  -DCOMPILER_RT_USE_PTHREADS=OFF \
+  -DCOMPILER_RT_BAREMETAL_BUILD=ON
+```
+
+### Compiling a simple program
+Just compile the program with the following command:
+```sh
+../build/bin/clang -target dlx32-unknown-elf -integrated-as -O2 -nostartfiles -nostdlib -c main.c -o main
+```
+
+Then link it to the library:
+```sh
+../build/bin/ld.lld main -L ../build-compiler-rt/lib/linux -lclang_rt.builtins-dlx32
+```
